@@ -593,6 +593,8 @@ function DownloadPage() {
               <a className="downloadLink" href={webUrl} target="_blank" rel="noreferrer">
                 Open Web
               </a>
+            ) : option.qrSrc ? (
+              <span className="downloadStatus">Scan QR to Install</span>
             ) : (
               <button className="secondaryButton" type="button" disabled>
                 QR Coming Soon
