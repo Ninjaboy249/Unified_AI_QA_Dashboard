@@ -12,10 +12,14 @@ import {
   Filter,
   Gauge,
   Home,
+  Menu,
+  QrCode,
   Search,
   ShieldCheck,
   Sparkles,
-  Table2
+  Smartphone,
+  Table2,
+  X
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
@@ -30,21 +34,56 @@ const navItems = [
   { path: "/policy", label: "Policy", icon: ShieldCheck },
   { path: "/assistant", label: "AI Assistant", icon: Bot },
   { path: "/knowledge", label: "Knowledge", icon: FileSearch },
-  { path: "/evidence", label: "Evidence", icon: Gauge }
+  { path: "/evidence", label: "Evidence", icon: Gauge },
+  { path: "/download", label: "Download", icon: QrCode }
 ];
 
 const priorities: Priority[] = ["Low", "Medium", "High", "Critical"];
 
+const downloadOptions = [
+  { platform: "Android", detail: "Install the Android build", icon: Smartphone, qrSrc: "/android-download-qr.png" },
+  { platform: "iOS", detail: "Install the iOS build", icon: Smartphone, qrSrc: "" },
+  { platform: "Web", detail: "Open the browser version", icon: QrCode, qrSrc: "/web-app-qr.png" }
+];
+
 export function App() {
+  const [isNavOpen, setIsNavOpen] = useState(false);
+
   return (
-    <div className="appShell">
-      <aside className="sidebar">
+    <div className={`appShell ${isNavOpen ? "navOpen" : ""}`}>
+      <header className="mobileTopbar">
+        <Link to="/" className="mobileBrand" onClick={() => setIsNavOpen(false)}>
+          <img className="mobileBrandLogo" src="/logo.svg" alt="Unified AI QA Dashboard" />
+        </Link>
+        <button
+          className="menuButton"
+          type="button"
+          aria-label={isNavOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-expanded={isNavOpen}
+          onClick={() => setIsNavOpen((current) => !current)}
+        >
+          {isNavOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
+      </header>
+      <button
+        className="navScrim"
+        type="button"
+        aria-label="Close navigation menu"
+        onClick={() => setIsNavOpen(false)}
+      />
+      <aside className="sidebar" aria-label="Primary navigation">
         <div className="brand">
           <img className="brandLogo" src="/logo.svg" alt="Unified AI QA Dashboard" />
         </div>
         <nav>
           {navItems.map((item) => (
-            <NavLink key={item.path} to={item.path} end={item.path === "/"} className="navItem">
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === "/"}
+              className="navItem"
+              onClick={() => setIsNavOpen(false)}
+            >
               <item.icon size={18} />
               <span>{item.label}</span>
             </NavLink>
@@ -61,6 +100,7 @@ export function App() {
           <Route path="/assistant" element={<Assistant />} />
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/evidence" element={<Evidence />} />
+          <Route path="/download" element={<DownloadPage />} />
         </Routes>
       </main>
     </div>
@@ -527,6 +567,40 @@ function Evidence() {
           <span key={item}><CheckCircle2 size={18} />{item}</span>
         ))}
       </div>
+    </Page>
+  );
+}
+
+function DownloadPage() {
+  const webUrl = typeof window !== "undefined" ? window.location.origin : "http://localhost:4000";
+
+  return (
+    <Page title="Download" kicker="Scan to install the mobile build or open the web app">
+      <section className="downloadGrid">
+        {downloadOptions.map((option) => (
+          <article className="downloadCard" key={option.platform}>
+            <div className="downloadCardHeader">
+              <span className="downloadIcon"><option.icon size={22} /></span>
+              <div>
+                <h2>{option.platform}</h2>
+                <p>{option.detail}</p>
+              </div>
+            </div>
+            <div className="qrFrame" aria-label={`${option.platform} QR code`}>
+              {option.qrSrc ? <img src={option.qrSrc} alt={`${option.platform} QR code`} /> : <span>QR pending</span>}
+            </div>
+            {option.platform === "Web" ? (
+              <a className="downloadLink" href={webUrl} target="_blank" rel="noreferrer">
+                Open Web
+              </a>
+            ) : (
+              <button className="secondaryButton" type="button" disabled>
+                QR Coming Soon
+              </button>
+            )}
+          </article>
+        ))}
+      </section>
     </Page>
   );
 }
