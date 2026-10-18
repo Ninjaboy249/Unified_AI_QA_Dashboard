@@ -413,6 +413,68 @@ th {
   background: #f1f4f8;
 }
 
+.testCaseTableWrap {
+  margin-top: 18px;
+}
+
+.testCaseTable {
+  min-width: 1040px;
+  table-layout: fixed;
+}
+
+.testCaseTable th {
+  color: #26364d;
+  background: #e9eef5;
+  font-weight: 800;
+}
+
+.testCaseTable th:nth-child(1),
+.testCaseTable td:nth-child(1) {
+  width: 110px;
+}
+
+.testCaseTable th:nth-child(2),
+.testCaseTable td:nth-child(2) {
+  width: 240px;
+}
+
+.testCaseTable th:nth-child(3),
+.testCaseTable td:nth-child(3),
+.testCaseTable th:nth-child(4),
+.testCaseTable td:nth-child(4) {
+  width: 295px;
+}
+
+.testCaseTable th:nth-child(5),
+.testCaseTable td:nth-child(5) {
+  width: 180px;
+}
+
+.testCaseTable pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  line-height: 1.45;
+}
+
+.testIdCell {
+  font-weight: 800;
+  color: var(--blue);
+}
+
+.testMeta {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.attachmentCell {
+  color: var(--muted);
+  font-style: italic;
+}
+
 .secondaryButton {
   background: #ffffff;
   color: var(--text);
@@ -722,6 +784,10 @@ th {
 
   .inventoryTable {
     min-width: 1080px;
+  }
+
+  .testCaseTable {
+    min-width: 940px;
   }
 
   th,

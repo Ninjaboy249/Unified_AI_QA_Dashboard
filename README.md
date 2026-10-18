@@ -16,7 +16,7 @@ The dashboard provides a unified operations interface with focused modules inste
 
 Key solutions included:
 
-- Test Case Generator: converts requirements into structured positive, negative, and edge test cases with JSON and Excel export.
+- Test Case Generator: converts requirements into structured positive, negative, and edge test cases with a web table, JSON export, and Excel export.
 - Bug Drafter: converts issue context into a triage-ready defect draft.
 - Device & Account: provides an Excel-style searchable, sortable, filterable device inventory.
 - Policy Assistant: extracts relevant guidance from Microsoft Learn and falls back to approved local knowledge files.
@@ -57,9 +57,9 @@ Implementation details:
 
 AI-generated outputs are not blindly trusted. The backend checks required fields and expected shapes before returning data to the browser. If the OpenAI API key is missing or the model is unavailable, the app falls back to deterministic demo output so the project can still be demonstrated.
 
-## Test Case Excel Export
+## Test Case Table and Excel Export
 
-The Test Case Generator includes a `Download Excel` action. It creates an Excel-compatible `.xls` file with these columns:
+The Test Case Generator displays generated cases in a table on the web page and includes a `Download Excel` action. Both use these columns:
 
 - `ID`
 - `Test Title`
@@ -67,7 +67,7 @@ The Test Case Generator includes a `Download Excel` action. It creates an Excel-
 - `Expected Steps`
 - `Attachments`
 
-The file is generated in the browser from the current test-case results, so QA users can immediately open it in Excel and add evidence links or screenshots in the Attachments column.
+Action Steps and Expected Steps are numbered for readability. The Excel file is generated in the browser from the current test-case results, so QA users can immediately open it in Excel and add evidence links or screenshots in the Attachments column.
 
 ## Policy Assistant
 

@@ -167,20 +167,43 @@ function TestCaseGenerator() {
           <Table2 size={16} />Download Excel
         </button>
       </ResultToolbar>
-      <section className="resultList">
-        {testCases.map((testCase) => (
-          <article className="resultCard" key={testCase.id}>
-            <div className="rowBetween">
-              <strong>{testCase.id}: {testCase.title}</strong>
-              <span className="pill">{testCase.type}</span>
-            </div>
-            <p>{testCase.preconditions}</p>
-            <ol>{testCase.steps.map((step) => <li key={step}>{step}</li>)}</ol>
-            <p><b>Expected:</b> {testCase.expectedResult}</p>
-          </article>
-        ))}
-      </section>
+      {testCases.length > 0 && <TestCaseTable testCases={testCases} />}
     </Page>
+  );
+}
+
+function TestCaseTable({ testCases }: { testCases: TestCase[] }) {
+  return (
+    <section className="tableWrap testCaseTableWrap" aria-label="Generated test cases">
+      <table className="testCaseTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Test Title</th>
+            <th>Action Steps</th>
+            <th>Expected Steps</th>
+            <th>Attachments</th>
+          </tr>
+        </thead>
+        <tbody>
+          {testCases.map((testCase) => {
+            const row = toTestCaseExportRow(testCase);
+            return (
+              <tr key={testCase.id}>
+                <td className="testIdCell">{row.id}</td>
+                <td>
+                  <strong>{row.title}</strong>
+                  <span className="testMeta">{testCase.type} · {testCase.priority}</span>
+                </td>
+                <td><pre>{row.actionSteps}</pre></td>
+                <td><pre>{row.expectedSteps}</pre></td>
+                <td className="attachmentCell">{row.attachments || "Add evidence link or screenshot"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </section>
   );
 }
 
@@ -565,13 +588,10 @@ function download(fileName: string, text: string) {
 
 function downloadTestCasesExcel(testCases: TestCase[]) {
   const headers = ["ID", "Test Title", "Action Steps", "Expected Steps", "Attachments"];
-  const rows = testCases.map((testCase) => [
-    testCase.id,
-    testCase.title,
-    testCase.steps.join("\n"),
-    testCase.expectedResult,
-    ""
-  ]);
+  const rows = testCases.map((testCase) => {
+    const row = toTestCaseExportRow(testCase);
+    return [row.id, row.title, row.actionSteps, row.expectedSteps, row.attachments];
+  });
   const tableRows = [headers, ...rows]
     .map((row, index) => {
       const cells = row
@@ -603,4 +623,28 @@ function escapeHtml(value: string) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function toTestCaseExportRow(testCase: TestCase) {
+  return {
+    id: testCase.id,
+    title: testCase.title,
+    actionSteps: numberedLines(testCase.steps),
+    expectedSteps: numberedLines(createExpectedSteps(testCase)),
+    attachments: ""
+  };
+}
+
+function createExpectedSteps(testCase: TestCase) {
+  const expected = testCase.expectedResult.trim();
+  if (testCase.steps.length <= 1) return [expected];
+
+  return testCase.steps.map((step, index) => {
+    if (index === testCase.steps.length - 1) return expected;
+    return `Complete "${step}" successfully.`;
+  });
+}
+
+function numberedLines(values: string[]) {
+  return values.map((value, index) => `${index + 1}. ${value}`).join("\n");
 }
