@@ -39,15 +39,7 @@ export function App() {
     <div className="appShell">
       <aside className="sidebar">
         <div className="brand">
-          <span className="brandMark" aria-hidden="true">
-            <span className="logoU">U</span>
-            <span className="logoA">A</span>
-            <span className="logoQ">Q</span>
-          </span>
-          <div>
-            <strong>Unified AI QA</strong>
-            <span>Dashboard</span>
-          </div>
+          <img className="brandLogo" src="/logo.svg" alt="Unified AI QA Dashboard" />
         </div>
         <nav>
           {navItems.map((item) => (
@@ -93,6 +85,10 @@ function Dashboard() {
 
   return (
     <Page title="Command Center" kicker="Grounded, structured and workflow-focused QA operations">
+      <section className="brandHero" aria-label="Unified AI QA Dashboard">
+        <img src="/logo.svg" alt="Unified AI QA Dashboard" />
+      </section>
+
       <form className="intentBar" onSubmit={submitIntent}>
         <Sparkles size={20} />
         <input value={intent} onChange={(event) => setIntent(event.target.value)} placeholder="Describe the QA task" />
