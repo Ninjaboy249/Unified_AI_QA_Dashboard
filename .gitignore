@@ -1,0 +1,12 @@
+node_modules/
+.tools/
+dist/
+dist-server/
+.env
+.DS_Store
+npm-debug.log*
+dev-server.log
+api-server.log
+api-server-error.log
+web-server.log
+web-server-error.log
