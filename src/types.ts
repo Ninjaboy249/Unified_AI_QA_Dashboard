@@ -32,6 +32,7 @@ export interface PolicyAnswer {
   confidence: number;
   sourceTitle?: string;
   fileName?: string;
+  sourceUrl?: string;
 }
 
 export interface DirectoryRecord {

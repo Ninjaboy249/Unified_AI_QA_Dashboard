@@ -324,12 +324,25 @@ textarea {
 
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin: 18px 0 0;
 }
 
 .toolbar button {
   background: var(--teal);
+}
+
+.sourceLink {
+  color: var(--blue);
+  font-weight: 700;
+  text-decoration: none;
+  display: inline-flex;
+  margin-top: 6px;
+}
+
+.sourceLink:hover {
+  text-decoration: underline;
 }
 
 .resultList {
@@ -587,10 +600,15 @@ th {
   .sidebar {
     position: static;
     padding: 18px;
+    gap: 16px;
   }
 
   nav {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .brandLogo {
+    width: 180px;
   }
 
   .page {
@@ -611,15 +629,60 @@ th {
 }
 
 @media (max-width: 560px) {
+  body {
+    background: #f7f8fb;
+  }
+
+  button {
+    width: 100%;
+  }
+
   nav,
   .actionGrid {
     grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    padding: 14px;
+  }
+
+  .brand {
+    justify-content: center;
+  }
+
+  .brandLogo {
+    width: min(220px, 92vw);
+  }
+
+  .navItem {
+    min-height: 40px;
+  }
+
+  .page {
+    padding: 16px;
+  }
+
+  h1 {
+    font-size: 1.62rem;
   }
 
   .pageHeader,
   .rowBetween {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .statusChip {
+    width: max-content;
+  }
+
+  .brandHero {
+    min-height: 118px;
+    margin-bottom: 16px;
+  }
+
+  .brandHero img {
+    width: 96%;
   }
 
   .intentBar {
@@ -630,5 +693,43 @@ th {
   .intentBar input {
     min-height: 42px;
     width: 100%;
+  }
+
+  .searchBox {
+    min-height: 50px;
+  }
+
+  .metricCard,
+  .inventorySummary article {
+    min-height: 104px;
+  }
+
+  .formPanel,
+  .resultCard {
+    padding: 14px;
+  }
+
+  .toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .tableWrap {
+    margin-left: -8px;
+    margin-right: -8px;
+    border-radius: 0;
+  }
+
+  .inventoryTable {
+    min-width: 1080px;
+  }
+
+  th,
+  td {
+    padding: 10px;
+  }
+
+  .accessoryCell {
+    min-width: 240px;
   }
 }

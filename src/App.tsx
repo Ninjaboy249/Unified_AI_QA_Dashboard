@@ -14,7 +14,8 @@ import {
   Home,
   Search,
   ShieldCheck,
-  Sparkles
+  Sparkles,
+  Table2
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
@@ -161,7 +162,11 @@ function TestCaseGenerator() {
         <Select label="Priority" value={form.priority} options={priorities} onChange={(value) => setForm({ ...form, priority: value as Priority })} />
         <Input label="Count" type="number" min={1} max={8} value={String(form.count)} onChange={(value) => setForm({ ...form, count: Number(value) })} />
       </FormPanel>
-      <ResultToolbar data={testCases} fileName="test-cases.json" />
+      <ResultToolbar data={testCases} fileName="test-cases.json">
+        <button onClick={() => downloadTestCasesExcel(testCases)} type="button">
+          <Table2 size={16} />Download Excel
+        </button>
+      </ResultToolbar>
       <section className="resultList">
         {testCases.map((testCase) => (
           <article className="resultCard" key={testCase.id}>
@@ -426,6 +431,7 @@ function PolicyAssistant() {
           </div>
           <p>{answer.answer}</p>
           {answer.sourceTitle && <p><b>Source:</b> {answer.sourceTitle} ({answer.fileName})</p>}
+          {answer.sourceUrl && <a className="sourceLink" href={answer.sourceUrl} target="_blank" rel="noreferrer">Open Microsoft Learn source</a>}
         </article>
       )}
     </Page>
@@ -535,13 +541,14 @@ function Select({ label, value, options, onChange }: { label: string; value: str
   return <label>{label}<select value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option}>{option}</option>)}</select></label>;
 }
 
-function ResultToolbar({ data, fileName }: { data: unknown; fileName: string }) {
+function ResultToolbar({ data, fileName, children }: { data: unknown; fileName: string; children?: React.ReactNode }) {
   const json = useMemo(() => JSON.stringify(data ?? {}, null, 2), [data]);
   if (!data || (Array.isArray(data) && data.length === 0)) return null;
   return (
     <div className="toolbar">
       <button onClick={() => navigator.clipboard.writeText(json)}><Copy size={16} />Copy JSON</button>
       <button onClick={() => download(fileName, json)}><FileDown size={16} />Export</button>
+      {children}
     </div>
   );
 }
@@ -554,4 +561,46 @@ function download(fileName: string, text: string) {
   anchor.download = fileName;
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+function downloadTestCasesExcel(testCases: TestCase[]) {
+  const headers = ["ID", "Test Title", "Action Steps", "Expected Steps", "Attachments"];
+  const rows = testCases.map((testCase) => [
+    testCase.id,
+    testCase.title,
+    testCase.steps.join("\n"),
+    testCase.expectedResult,
+    ""
+  ]);
+  const tableRows = [headers, ...rows]
+    .map((row, index) => {
+      const cells = row
+        .map((cell) => {
+          const tag = index === 0 ? "th" : "td";
+          return `<${tag}>${escapeHtml(cell)}</${tag}>`;
+        })
+        .join("");
+      return `<tr>${cells}</tr>`;
+    })
+    .join("");
+  const workbook = `<!doctype html><html><head><meta charset="UTF-8"><style>table{border-collapse:collapse;font-family:Arial,sans-serif}th{background:#1f4e78;color:#fff}th,td{border:1px solid #9aa7b5;padding:8px;vertical-align:top;white-space:pre-wrap}</style></head><body><table>${tableRows}</table></body></html>`;
+  downloadBlob("test-cases.xls", workbook, "application/vnd.ms-excel");
+}
+
+function downloadBlob(fileName: string, text: string, type: string) {
+  const blob = new Blob([text], { type });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }

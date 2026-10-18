@@ -8,6 +8,13 @@ interface Source {
   body: string;
 }
 
+interface LearnResult {
+  title?: string;
+  description?: string;
+  url?: string;
+  displayUrl?: string;
+}
+
 const knowledgeDir = path.resolve(process.cwd(), "knowledge");
 
 export function listKnowledgeSources() {
@@ -19,6 +26,9 @@ export function listKnowledgeSources() {
 }
 
 export async function answerPolicyQuestion(question: string): Promise<PolicyAnswer> {
+  const learnAnswer = await answerFromMicrosoftLearn(question);
+  if (learnAnswer) return learnAnswer;
+
   const sources = loadSources();
   const scored = sources
     .map((source) => ({ source, score: score(question, source.body + " " + source.title) }))
@@ -29,7 +39,7 @@ export async function answerPolicyQuestion(question: string): Promise<PolicyAnsw
     return {
       found: false,
       confidence: 0,
-      answer: "I could not find enough approved local evidence to answer this policy question. Please add a source or ask an administrator to confirm it."
+      answer: "I could not find enough Microsoft Learn or local evidence to answer this policy question. Please refine the question or ask an administrator to confirm it."
     };
   }
 
@@ -48,6 +58,42 @@ export async function answerPolicyQuestion(question: string): Promise<PolicyAnsw
       ? lines.join(" ")
       : "Approved guidance was found, but it should be reviewed in the source document before use."
   };
+}
+
+async function answerFromMicrosoftLearn(question: string): Promise<PolicyAnswer | null> {
+  try {
+    const url = new URL("https://learn.microsoft.com/api/search");
+    url.searchParams.set("search", question);
+    url.searchParams.set("locale", "en-us");
+    url.searchParams.set("$top", "5");
+
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(12000)
+    });
+    if (!response.ok) return null;
+
+    const payload = (await response.json()) as { results?: LearnResult[] };
+    const results = (payload.results ?? []).filter((result) => result.title && (result.description || result.url));
+    const best = results[0];
+    if (!best) return null;
+
+    const extracted = results.slice(0, 3).map((result, index) => {
+      const description = cleanText(result.description ?? "");
+      return `${index + 1}. ${result.title}: ${description}`;
+    });
+
+    return {
+      found: true,
+      confidence: 0.86,
+      sourceTitle: best.title,
+      sourceUrl: normalizeLearnUrl(best.url ?? best.displayUrl),
+      fileName: "learn.microsoft.com",
+      answer: `Microsoft Learn returned these relevant policy references: ${extracted.join(" ")}`
+    };
+  } catch {
+    return null;
+  }
 }
 
 function loadSources(): Source[] {
@@ -70,4 +116,15 @@ function score(query: string, text: string): number {
   );
   const haystack = text.toLowerCase();
   return [...tokens].reduce((total, token) => total + (haystack.includes(token) ? 1 : 0), 0);
+}
+
+function cleanText(value: string) {
+  return value.replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeLearnUrl(value: string | undefined) {
+  if (!value) return undefined;
+  if (value.startsWith("https://learn.microsoft.com")) return value;
+  if (value.startsWith("/")) return `https://learn.microsoft.com${value}`;
+  return value;
 }

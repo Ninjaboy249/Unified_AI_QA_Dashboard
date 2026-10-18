@@ -16,10 +16,10 @@ The dashboard provides a unified operations interface with focused modules inste
 
 Key solutions included:
 
-- Test Case Generator: converts requirements into structured positive, negative, and edge test cases.
+- Test Case Generator: converts requirements into structured positive, negative, and edge test cases with JSON and Excel export.
 - Bug Drafter: converts issue context into a triage-ready defect draft.
 - Device & Account: provides an Excel-style searchable, sortable, filterable device inventory.
-- Policy Assistant: answers only from approved local knowledge files and refuses unsupported questions.
+- Policy Assistant: extracts relevant guidance from Microsoft Learn and falls back to approved local knowledge files.
 - AI Assistant: routes natural-language intent to the correct workflow.
 - Knowledge Sources: shows the local evidence documents used by the policy assistant.
 - Health & Evidence: shows AI mode, configured model, validation controls, and project proof points.
@@ -29,8 +29,8 @@ Key solutions included:
 - Frontend: React 19, TypeScript, Vite, React Router, Lucide icons.
 - Backend: Express 5, TypeScript, Zod validation.
 - AI provider: OpenAI GPT-5 mini through a backend-only API integration.
-- Knowledge base: local Markdown files in `knowledge/`.
-- Styling: custom responsive CSS with premium dashboard layout and spreadsheet-style inventory table.
+- Knowledge base: Microsoft Learn search extraction plus local Markdown fallback files in `knowledge/`.
+- Styling: custom responsive CSS with premium desktop and mobile dashboard layouts.
 - Runtime: Node.js. This workspace also includes a portable Node setup in `.tools/` for local execution.
 
 ## How It Implements
@@ -51,11 +51,27 @@ Implementation details:
 - Test-case generation logic is in `server/services/testCaseService.ts`.
 - Bug drafting logic is in `server/services/bugService.ts`.
 - Device inventory data and search are in `server/services/directoryService.ts`.
-- Policy retrieval is in `server/services/policyService.ts`.
+- Policy retrieval from Microsoft Learn and local fallback data is in `server/services/policyService.ts`.
 - Shared backend types are in `server/types.ts`.
 - Frontend types are in `src/types.ts`.
 
 AI-generated outputs are not blindly trusted. The backend checks required fields and expected shapes before returning data to the browser. If the OpenAI API key is missing or the model is unavailable, the app falls back to deterministic demo output so the project can still be demonstrated.
+
+## Test Case Excel Export
+
+The Test Case Generator includes a `Download Excel` action. It creates an Excel-compatible `.xls` file with these columns:
+
+- `ID`
+- `Test Title`
+- `Action Steps`
+- `Expected Steps`
+- `Attachments`
+
+The file is generated in the browser from the current test-case results, so QA users can immediately open it in Excel and add evidence links or screenshots in the Attachments column.
+
+## Policy Assistant
+
+The Policy Assistant first searches Microsoft Learn from the backend using `learn.microsoft.com` results. It returns extracted result titles, descriptions, and a source link. If Microsoft Learn is unavailable or does not return usable results, the service falls back to the approved local Markdown corpus in `knowledge/`.
 
 ## Device Inventory
 
