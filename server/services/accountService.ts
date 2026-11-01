@@ -46,8 +46,7 @@ function configuredAccounts() {
     const password = process.env[`${prefix}_PASSWORD`];
     if (!username || !password) continue;
     if (password.length < 8) {
-      console.warn(`${prefix}_PASSWORD must be at least 8 characters; the ${role} account was not enabled.`);
-      continue;
+      console.warn(`${prefix}_PASSWORD is shorter than 8 characters; use a stronger password for shared or hosted deployments.`);
     }
     accounts.push({ username: username.toLowerCase(), password, role });
   }

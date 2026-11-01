@@ -150,7 +150,7 @@ Signing in with the configured admin or dev credentials adds an **Account** item
 
 3. Restart the backend. On first use it creates `qa_accounts` and `qa_account_sessions`, storing only scrypt password hashes and SHA-256 session-token hashes.
 
-- Usernames are case-insensitive; passwords must be at least 8 characters and the two usernames must differ.
+- Usernames are case-insensitive; the two usernames must differ. Short passwords are allowed but log a warning; use strong passwords for shared or hosted deployments.
 - The environment is the source of truth: changing a password or username, or removing a pair, revokes the old credentials and their sessions on the next backend start.
 - Sessions last 8 hours in an `HttpOnly`, `SameSite=Strict` cookie (`Secure` over HTTPS). Sign out from the Account page.
 - The Account page shows the username, role and session expiry. Admins also see the list of configured accounts.
