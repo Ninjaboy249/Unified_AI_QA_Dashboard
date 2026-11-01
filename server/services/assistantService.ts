@@ -1,8 +1,8 @@
 const routes = [
   { path: "/test-cases", label: "Test Case Generator", keywords: ["test", "case", "coverage", "scenario", "requirement"] },
   { path: "/bug-drafter", label: "Bug Drafter", keywords: ["bug", "defect", "crash", "triage", "reproduce"] },
-  { path: "/directory", label: "Device & Account", keywords: ["device", "account", "owner", "directory", "compliance"] },
-  { path: "/policy", label: "Policy Assistant", keywords: ["policy", "mfa", "intune", "teams", "configuration", "external"] },
+  { path: "/directory", label: "Devices", keywords: ["device", "owner", "directory", "compliance"] },
+  { path: "/policy", label: "Policy Setup Assistant", keywords: ["policy", "mfa", "intune", "teams", "configuration", "external", "admin", "portal"] },
   { path: "/knowledge", label: "Knowledge Sources", keywords: ["source", "evidence", "document", "knowledge"] },
   { path: "/evidence", label: "Health & Evidence", keywords: ["health", "openai", "chatgpt", "gpt", "model", "build", "validation"] }
 ];

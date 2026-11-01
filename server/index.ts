@@ -8,6 +8,6 @@ const staticDir = path.resolve(process.cwd(), "dist");
 app.use(express.static(staticDir));
 app.get(/.*/, (_req, res) => res.sendFile(path.join(staticDir, "index.html")));
 
-app.listen(port, () => {
+app.listen(port, process.env.POLICY_AUTOMATION_ENABLED === "true" ? "127.0.0.1" : "0.0.0.0", () => {
   console.log(`Unified AI QA Dashboard API listening on http://localhost:${port}`);
 });

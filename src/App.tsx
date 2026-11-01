@@ -1,6 +1,5 @@
 import {
   Activity,
-  ArrowUpDown,
   Bot,
   Bug,
   CheckCircle2,
@@ -9,29 +8,31 @@ import {
   Database,
   FileDown,
   FileSearch,
-  Filter,
   Gauge,
   Home,
+  LogIn,
   Menu,
   QrCode,
-  Search,
   ShieldCheck,
   Sparkles,
   Smartphone,
   Table2,
+  UserRound,
   X
 } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { apiGet, apiPost } from "./api";
-import type { BugDraft, DirectoryRecord, PolicyAnswer, Priority, TestCase } from "./types";
+import { AccountPage, LoginPage } from "./Account";
+import { Directory } from "./Directory";
+import type { Account, BugDraft, PolicyAnswer, PolicySetupPlan, Priority, RequirementDocument, TestCase } from "./types";
 
 const navItems = [
   { path: "/", label: "Command Center", icon: Home },
   { path: "/test-cases", label: "Test Cases", icon: ClipboardList },
   { path: "/bug-drafter", label: "Bug Drafter", icon: Bug },
-  { path: "/directory", label: "Device & Account", icon: Database },
-  { path: "/policy", label: "Policy", icon: ShieldCheck },
+  { path: "/directory", label: "Devices", icon: Database },
+  { path: "/policy", label: "Policy Setup Assistant", icon: ShieldCheck },
   { path: "/assistant", label: "AI Assistant", icon: Bot },
   { path: "/knowledge", label: "Knowledge", icon: FileSearch },
   { path: "/evidence", label: "Evidence", icon: Gauge },
@@ -48,6 +49,21 @@ const downloadOptions = [
 
 export function App() {
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [account, setAccount] = useState<Account | null>(null);
+  const [accountsConfigured, setAccountsConfigured] = useState(true);
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const isPrivileged = account?.role === "admin" || account?.role === "dev";
+  const visibleNavItems = isPrivileged ? [...navItems, { path: "/account", label: "Account", icon: UserRound }] : navItems;
+
+  useEffect(() => {
+    apiGet<{ configured: boolean; account: Account | null }>("/api/auth/session")
+      .then((session) => {
+        setAccountsConfigured(session.configured);
+        setAccount(session.account);
+      })
+      .catch(() => setAccount(null))
+      .finally(() => setSessionChecked(true));
+  }, []);
 
   return (
     <div className={`appShell ${isNavOpen ? "navOpen" : ""}`}>
@@ -76,7 +92,7 @@ export function App() {
           <img className="brandLogo" src="/logo.svg" alt="Unified AI QA Dashboard" />
         </div>
         <nav>
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
@@ -89,6 +105,12 @@ export function App() {
             </NavLink>
           ))}
         </nav>
+        {sessionChecked && !account && (
+          <NavLink to="/login" className="navItem signInLink" onClick={() => setIsNavOpen(false)}>
+            <LogIn size={18} />
+            <span>Admin / Dev sign in</span>
+          </NavLink>
+        )}
       </aside>
       <main>
         <Routes>
@@ -101,6 +123,11 @@ export function App() {
           <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/evidence" element={<Evidence />} />
           <Route path="/download" element={<DownloadPage />} />
+          <Route path="/login" element={<LoginPage account={account} configured={accountsConfigured} onSignedIn={setAccount} />} />
+          <Route
+            path="/account"
+            element={sessionChecked ? <AccountPage account={account} onSignedOut={() => setAccount(null)} /> : null}
+          />
         </Routes>
       </main>
     </div>
@@ -173,35 +200,96 @@ function Dashboard() {
 
 function TestCaseGenerator() {
   const [form, setForm] = useState({
-    requirement: "Users must be able to sign in with valid credentials and see a helpful error for invalid credentials.",
+    requirement: "Microsoft Teams mobile users must be able to sign in with valid credentials and see a helpful error for invalid credentials.",
     feature: "Sign in",
     platform: "Android",
     priority: "High" as Priority,
-    count: 2
+    count: 2,
+    includeScreenshots: false
   });
   const [loading, setLoading] = useState(false);
   const [testCases, setTestCases] = useState<TestCase[]>([]);
+  const [document, setDocument] = useState<RequirementDocument | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+
+  async function importDocument(file: File | undefined) {
+    if (!file) return;
+    setError("");
+    setDocument(null);
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Document must be 5 MB or smaller.");
+      return;
+    }
+    setImporting(true);
+    try {
+      const content = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(",")[1]);
+        reader.onerror = () => reject(new Error("Could not read the selected file."));
+        reader.readAsDataURL(file);
+      });
+      const result = await apiPost<RequirementDocument>("/api/requirements/extract", { fileName: file.name, content });
+      setDocument(result);
+      setForm((current) => ({
+        ...current,
+        requirement: result.text
+      }));
+      setTestCases([]);
+      setNotice("");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Document import failed.");
+    } finally {
+      setImporting(false);
+    }
+  }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
+    setError("");
+    setTestCases([]);
+    setNotice("");
     try {
-      const data = await apiPost<{ testCases: TestCase[] }>("/api/test-cases/generate", form);
+      const data = await apiPost<{ testCases: TestCase[]; notice: string }>("/api/test-cases/generate", form);
       setTestCases(data.testCases);
+      setNotice(data.notice);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Test case generation failed.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <Page title="Test Case Generator" kicker="Requirement to structured iOS, Android or Web coverage">
-      <FormPanel onSubmit={submit} loading={loading} button="Generate">
+    <Page title="Test Case Generator" kicker="Microsoft Teams mobile coverage for Android and iOS only">
+      <section className="resultCard">
+        <label>Upload requirement document
+          <input type="file" accept=".txt,.md,.pdf,.docx" disabled={importing || loading} onChange={(event) => {
+            void importDocument(event.target.files?.[0]);
+            event.target.value = "";
+          }} />
+        </label>
+        <p>TXT, Markdown, text-based PDF or DOCX, up to 5 MB / 60,000 extracted characters. Text is sent to the configured OpenAI provider for structuring. Remove secrets and personal data first.</p>
+        {importing && <p role="status">Extracting and structuring requirements...</p>}
+        {document && <div>
+          <h2>{document.fileName}</h2>
+          <p role="status">{document.notice}</p>
+          <ol>{document.requirements.map((requirement, index) => <li key={`${requirement.id}-${index}`}><strong>{requirement.id}: {requirement.title}</strong><p>{requirement.description}</p></li>)}</ol>
+          <details><summary>Original extracted text</summary><pre className="documentText">{document.text}</pre></details>
+        </div>}
+      </section>
+      {error && <p className="errorMessage" role="alert">{error}</p>}
+      <FormPanel onSubmit={submit} loading={loading || importing} button="Generate Teams cases">
         <TextArea label="Requirement" value={form.requirement} onChange={(value) => setForm({ ...form, requirement: value })} />
         <Input label="Feature" value={form.feature} onChange={(value) => setForm({ ...form, feature: value })} />
-        <Select label="Platform" value={form.platform} options={["iOS", "Android", "Web"]} onChange={(value) => setForm({ ...form, platform: value })} />
+        <Select label="Platform" value={form.platform} options={["iOS", "Android"]} onChange={(value) => setForm({ ...form, platform: value })} />
         <Select label="Priority" value={form.priority} options={priorities} onChange={(value) => setForm({ ...form, priority: value as Priority })} />
         <Input label="Count" type="number" min={1} max={8} value={String(form.count)} onChange={(value) => setForm({ ...form, count: Number(value) })} />
+        <label className="checkLabel wide"><input type="checkbox" checked={form.includeScreenshots} onChange={(event) => setForm({ ...form, includeScreenshots: event.target.checked })} />Find Microsoft documentation screenshots when available (references, not test evidence)</label>
       </FormPanel>
+      {notice && <p role="status">{notice}</p>}
       <ResultToolbar data={testCases} fileName="test-cases.json">
         <button onClick={() => downloadTestCasesExcel(testCases)} type="button">
           <Table2 size={16} />Download Excel
@@ -237,7 +325,15 @@ function TestCaseTable({ testCases }: { testCases: TestCase[] }) {
                 </td>
                 <td><pre>{row.actionSteps}</pre></td>
                 <td><pre>{row.expectedSteps}</pre></td>
-                <td className="attachmentCell">{row.attachments || "Add evidence link or screenshot"}</td>
+                <td className="attachmentCell">
+                  {testCase.attachments?.length ? testCase.attachments.map((attachment) => (
+                    <figure className="screenshotReference" key={attachment.url}>
+                      <img src={attachment.url} alt={attachment.title} loading="lazy" referrerPolicy="no-referrer" />
+                      <a href={attachment.url} target="_blank" rel="noreferrer">Open screenshot reference</a>
+                      <figcaption>{attachment.title} <a href={attachment.sourceUrl} target="_blank" rel="noreferrer">Microsoft source</a></figcaption>
+                    </figure>
+                  )) : "No reference found. Attach real device evidence after execution."}
+                </td>
               </tr>
             );
           })}
@@ -297,195 +393,118 @@ function BugDrafter() {
   );
 }
 
-function Directory() {
-  const [query, setQuery] = useState("");
-  const [owner, setOwner] = useState("All");
-  const [platform, setPlatform] = useState("All");
-  const [status, setStatus] = useState("All");
-  const [sort, setSort] = useState<{ key: keyof DirectoryRecord; direction: "asc" | "desc" }>({
-    key: "owner",
-    direction: "asc"
-  });
-  const [records, setRecords] = useState<DirectoryRecord[]>([]);
-
-  useEffect(() => {
-    apiGet<{ records: DirectoryRecord[] }>(`/api/directory/search?q=${encodeURIComponent(query)}`)
-      .then((data) => setRecords(data.records))
-      .catch(() => undefined);
-  }, [query]);
-
-  const owners = useMemo(() => ["All", ...unique(records.map((record) => record.owner))], [records]);
-  const platforms = useMemo(() => ["All", ...unique(records.map((record) => record.platform))], [records]);
-  const statuses = useMemo(() => ["All", ...unique(records.map((record) => record.status))], [records]);
-
-  const visibleRecords = useMemo(() => {
-    return records
-      .filter((record) => owner === "All" || record.owner === owner)
-      .filter((record) => platform === "All" || record.platform === platform)
-      .filter((record) => status === "All" || record.status === status)
-      .sort((first, second) => compareDirectory(first, second, sort.key, sort.direction));
-  }, [owner, platform, records, sort, status]);
-
-  const activeCount = records.filter((record) => record.status === "Active").length;
-  const obsoleteCount = records.filter((record) => record.status === "Obsolete").length;
-
-  function updateSort(key: keyof DirectoryRecord) {
-    setSort((current) => ({
-      key,
-      direction: current.key === key && current.direction === "asc" ? "desc" : "asc"
-    }));
-  }
-
-  function resetFilters() {
-    setQuery("");
-    setOwner("All");
-    setPlatform("All");
-    setStatus("All");
-    setSort({ key: "owner", direction: "asc" });
-  }
-
-  return (
-    <Page title="Device & Account" kicker="Excel-style QA device inventory with filter, sort and export">
-      <section className="inventorySummary">
-        <article><span>Total devices</span><strong>{records.length}</strong></article>
-        <article><span>Active</span><strong>{activeCount}</strong></article>
-        <article><span>Obsolete</span><strong>{obsoleteCount}</strong></article>
-        <article><span>Visible rows</span><strong>{visibleRecords.length}</strong></article>
-      </section>
-
-      <section className="inventoryControls">
-        <label className="searchBox">
-          <Search size={18} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, device, OS, serial or accessories" />
-        </label>
-        <div className="filterGrid">
-          <Select label="Owner" value={owner} options={owners} onChange={setOwner} />
-          <Select label="Platform" value={platform} options={platforms} onChange={setPlatform} />
-          <Select label="Status" value={status} options={statuses} onChange={setStatus} />
-          <button className="secondaryButton" onClick={resetFilters} type="button"><Filter size={16} />Reset</button>
-          <button className="secondaryButton" onClick={() => download("device-inventory.csv", toCsv(visibleRecords))} type="button"><FileDown size={16} />Export CSV</button>
-        </div>
-      </section>
-
-      <section className="tableWrap inventoryTableWrap">
-        <table className="inventoryTable">
-          <thead>
-            <tr>
-              <SortableTh label="S.No" sortKey="serialGroup" active={sort} onSort={updateSort} />
-              <SortableTh label="Name" sortKey="owner" active={sort} onSort={updateSort} />
-              <SortableTh label="Device" sortKey="device" active={sort} onSort={updateSort} />
-              <SortableTh label="Platform" sortKey="platform" active={sort} onSort={updateSort} />
-              <SortableTh label="OS" sortKey="os" active={sort} onSort={updateSort} />
-              <SortableTh label="Complete OS version" sortKey="completeOsVersion" active={sort} onSort={updateSort} />
-              <SortableTh label="Serial No." sortKey="serialNo" active={sort} onSort={updateSort} />
-              <SortableTh label="Accessories" sortKey="accessories" active={sort} onSort={updateSort} />
-              <SortableTh label="Status" sortKey="status" active={sort} onSort={updateSort} />
-            </tr>
-          </thead>
-          <tbody>
-            {visibleRecords.map((record) => (
-              <tr key={record.id}>
-                <td>{record.serialGroup || "-"}</td>
-                <td className="ownerCell">{record.owner}</td>
-                <td>{record.device}</td>
-                <td><span className={`platformBadge ${record.platform.toLowerCase()}`}>{record.platform}</span></td>
-                <td>{record.os}</td>
-                <td>{record.completeOsVersion}</td>
-                <td className="serialCell">{record.serialNo}</td>
-                <td className="accessoryCell">{record.accessories}</td>
-                <td><span className={`statusBadge ${record.status.toLowerCase()}`}>{record.status}</span></td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-    </Page>
-  );
-}
-
-function SortableTh({
-  label,
-  sortKey,
-  active,
-  onSort
-}: {
-  label: string;
-  sortKey: keyof DirectoryRecord;
-  active: { key: keyof DirectoryRecord; direction: "asc" | "desc" };
-  onSort: (key: keyof DirectoryRecord) => void;
-}) {
-  const suffix = active.key === sortKey ? (active.direction === "asc" ? " Asc" : " Desc") : "";
-  return (
-    <th>
-      <button className="sortButton" onClick={() => onSort(sortKey)} type="button">
-        <span>{label}{suffix}</span>
-        <ArrowUpDown size={14} />
-      </button>
-    </th>
-  );
-}
-
-function unique(values: string[]) {
-  return Array.from(new Set(values)).sort((first, second) => first.localeCompare(second));
-}
-
-function compareDirectory(
-  first: DirectoryRecord,
-  second: DirectoryRecord,
-  key: keyof DirectoryRecord,
-  direction: "asc" | "desc"
-) {
-  const firstValue = first[key];
-  const secondValue = second[key];
-  const multiplier = direction === "asc" ? 1 : -1;
-
-  if (typeof firstValue === "number" && typeof secondValue === "number") {
-    return (firstValue - secondValue) * multiplier;
-  }
-
-  return String(firstValue).localeCompare(String(secondValue), undefined, { numeric: true, sensitivity: "base" }) * multiplier;
-}
-
-function toCsv(records: DirectoryRecord[]) {
-  const headers = ["S.No", "Name", "Device", "Platform", "OS", "Complete OS version", "Serial No.", "Accessories", "Status"];
-  const rows = records.map((record) => [
-    record.serialGroup || "",
-    record.owner,
-    record.device,
-    record.platform,
-    record.os,
-    record.completeOsVersion,
-    record.serialNo,
-    record.accessories,
-    record.status
-  ]);
-  return [headers, ...rows].map((row) => row.map(csvCell).join(",")).join("\n");
-}
-
-function csvCell(value: string | number) {
-  return `"${String(value).replace(/"/g, '""')}"`;
-}
-
 function PolicyAssistant() {
   const [question, setQuestion] = useState("How should Teams external access be controlled?");
   const [answer, setAnswer] = useState<PolicyAnswer | null>(null);
   const [loading, setLoading] = useState(false);
+  const [plan, setPlan] = useState<PolicySetupPlan | null>(null);
+  const [history, setHistory] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
+  const [error, setError] = useState("");
+  const [token, setToken] = useState("");
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [sessionId, setSessionId] = useState("");
+  const [loginMessage, setLoginMessage] = useState("");
+  const [loginBusy, setLoginBusy] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setLoading(true);
+    setError("");
+    setPlan(null);
     try {
-      setAnswer(await apiPost<PolicyAnswer>("/api/policy/ask", { question }));
+      const result = await apiPost<PolicySetupPlan>("/api/policy/setup", {
+        question,
+        context: history.filter((message) => message.role === "user").slice(-3).map((message) => message.text)
+      });
+      setPlan(result);
+      setHistory((current) => [...current, { role: "user", text: question }, { role: "assistant", text: `${result.portal.name}: ${result.explanation}` }]);
+      setQuestion("");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Policy recommendation failed.");
     } finally {
       setLoading(false);
     }
   }
 
+  async function getGuidance() {
+    setError("");
+    setLoading(true);
+    try {
+      setAnswer(await apiPost<PolicyAnswer>("/api/policy/ask", { question }));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Guidance retrieval failed.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function login(event: FormEvent) {
+    event.preventDefault();
+    if (!plan) return;
+    setLoginBusy(true);
+    setError("");
+    setLoginMessage("");
+    const credentials = { portalId: plan.portal.id, username, password };
+    setPassword("");
+    try {
+      const result = await apiPost<{ sessionId: string; message: string }>("/api/policy/login/start", credentials, token);
+      setSessionId(result.sessionId);
+      setLoginMessage(result.message);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Browser login failed.");
+    } finally {
+      credentials.password = "";
+      setLoginBusy(false);
+    }
+  }
+
+  async function closeSession() {
+    setLoginBusy(true);
+    setError("");
+    try {
+      const result = await apiPost<{ message: string }>("/api/policy/login/close", { sessionId }, token);
+      setSessionId("");
+      setLoginMessage(result.message);
+      setUsername("");
+      setToken("");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not close the browser session.");
+    } finally {
+      setLoginBusy(false);
+    }
+  }
+
   return (
-    <Page title="Policy Assistant" kicker="Approved local evidence controls the answer boundary">
-      <FormPanel onSubmit={submit} loading={loading} button="Ask">
-        <TextArea label="Question" value={question} onChange={setQuestion} />
+    <Page title="Policy Setup Assistant" kicker="AI-guided Microsoft portal selection with human-controlled policy changes">
+      <p>Describe the policy, not your credentials. AI recommends an approved portal and navigation steps. Credentials belong only in the separate local login form or on Microsoft sign-in.</p>
+      <section className="policyChat" aria-label="Policy conversation" role="log" aria-live="polite">
+        {history.map((message, index) => <article className={`chatMessage ${message.role}`} key={index}><strong>{message.role === "user" ? "You" : "Policy assistant"}</strong><p>{message.text}</p></article>)}
+      </section>
+      {error && <p className="errorMessage" role="alert">{error}</p>}
+      <FormPanel onSubmit={submit} loading={loading || loginBusy || Boolean(sessionId)} button="Find portal and setup path">
+        <TextArea label="Policy request (no passwords)" value={question} onChange={setQuestion} />
+        <button type="button" className="secondaryButton" disabled={loading || question.trim().length < 4} onClick={() => void getGuidance()}>Find supporting guidance</button>
       </FormPanel>
+      {plan && <article className="resultCard">
+        <h2>{plan.portal.name}</h2>
+        <p>{plan.explanation}</p>
+        <ol>{plan.steps.map((step, index) => <li key={index}>{step}</li>)}</ol>
+        <a className="sourceLink" href={plan.portal.url} target="_blank" rel="noreferrer">Open {plan.portal.name}</a>
+        <p>AI navigation is a draft and may vary by tenant, licensing and role. Review changes manually. The dashboard never applies policies.</p>
+        <details>
+          <summary>Automated login on this computer (private local backend only)</summary>
+          <p>A visible isolated Chromium window opens on the backend computer, not on a remote user's device. Credentials are sent only to the local backend and Microsoft, never to OpenAI. They are not saved to disk; JavaScript memory cannot guarantee secure erasure. Complete MFA in that window. Federated/custom identity providers require manual sign-in.</p>
+          <form className="credentialForm" onSubmit={login} autoComplete="off">
+            <label>Local automation token<input type="password" value={token} onChange={(event) => setToken(event.target.value)} required minLength={32} autoComplete="off" disabled={loginBusy || Boolean(sessionId)} /></label>
+            <label>Admin email<input type="email" value={username} onChange={(event) => setUsername(event.target.value)} required autoComplete="off" disabled={loginBusy || Boolean(sessionId)} /></label>
+            <label>Admin password<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="new-password" disabled={loginBusy || Boolean(sessionId)} /></label>
+            <button type="submit" disabled={loginBusy || Boolean(sessionId)}>{loginBusy ? "Working..." : "Open portal and submit sign-in"}</button>
+          </form>
+        </details>
+      </article>}
+      {loginMessage && <p role="status">{loginMessage}</p>}
+      {sessionId && <button type="button" disabled={loginBusy} onClick={() => void closeSession()}>Close isolated browser session</button>}
       {answer && (
         <article className={`resultCard ${answer.found ? "found" : "notFound"}`}>
           <div className="rowBetween">
@@ -707,7 +726,7 @@ function toTestCaseExportRow(testCase: TestCase) {
     title: testCase.title,
     actionSteps: numberedLines(testCase.steps),
     expectedSteps: numberedLines(createExpectedSteps(testCase)),
-    attachments: ""
+    attachments: (testCase.attachments ?? []).map((attachment) => `${attachment.title}\nScreenshot: ${attachment.url}\nSource: ${attachment.sourceUrl}`).join("\n\n")
   };
 }
 

@@ -1,6 +1,7 @@
 export type Priority = "Low" | "Medium" | "High" | "Critical";
 
 export interface TestCase {
+  attachments?: ScreenshotReference[];
   id: string;
   title: string;
   type: "Positive" | "Negative" | "Edge";
@@ -8,6 +9,20 @@ export interface TestCase {
   preconditions: string;
   steps: string[];
   expectedResult: string;
+}
+
+export interface ScreenshotReference {
+  url: string;
+  sourceUrl: string;
+  title: string;
+}
+
+export interface RequirementDocument {
+  fileName: string;
+  requirements: Array<{ id: string; title: string; description: string }>;
+  text: string;
+  mode: "ai" | "extracted";
+  notice: string;
 }
 
 export interface BugDraft {

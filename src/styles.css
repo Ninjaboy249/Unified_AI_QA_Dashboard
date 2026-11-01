@@ -20,6 +20,67 @@
   box-sizing: border-box;
 }
 
+.errorMessage {
+  color: var(--rose);
+  border: 1px solid currentColor;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.documentText {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkLabel input {
+  width: auto;
+  min-height: auto;
+}
+
+.policyChat,
+.credentialForm {
+  display: grid;
+  gap: 14px;
+  margin: 18px 0;
+}
+
+.chatMessage {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  overflow-wrap: anywhere;
+}
+
+.chatMessage.user {
+  border-left: 4px solid var(--blue);
+}
+
+.chatMessage.assistant {
+  border-left: 4px solid var(--teal);
+}
+
+.screenshotReference {
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+
+.screenshotReference img {
+  display: block;
+  max-width: 180px;
+  max-height: 220px;
+  margin: 8px 0;
+  object-fit: contain;
+}
+
 body {
   margin: 0;
   background:
@@ -120,6 +181,26 @@ nav {
 .navItem:hover {
   background: rgba(255, 255, 255, 0.1);
   color: white;
+}
+
+.signInLink {
+  margin-top: auto;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.accountForm {
+  display: grid;
+  gap: 14px;
+  max-width: 420px;
+}
+
+.accountCard h2,
+.accountCard button,
+.resultCard h2 svg {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  vertical-align: middle;
 }
 
 main {
@@ -527,6 +608,48 @@ th {
 .inventoryControls {
   display: grid;
   gap: 14px;
+}
+
+.deviceEditorGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: 14px;
+}
+
+.deviceRowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.deviceRecordId {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}
+
+.deviceChangePreview {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.deviceChangePreview dl > div {
+  margin: 10px 0;
+}
+
+.deviceChangePreview dt {
+  font-weight: 700;
+}
+
+.deviceChangePreview dd {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.emptyInventory {
+  padding: 16px;
 }
 
 .filterGrid {
@@ -977,4 +1100,52 @@ th {
   .accessoryCell {
     min-width: 240px;
   }
+}
+
+.testAccountForm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  align-items: end;
+  margin: 16px 0 22px;
+}
+
+.testAccountFormActions,
+.rowIconActions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.testAccountForm button,
+.rowIconActions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ringGroup h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0 8px;
+}
+
+.passwordValue {
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  margin-right: 8px;
+}
+
+.iconButton {
+  min-height: 30px;
+  padding: 4px 8px;
+}
+
+.dangerButton {
+  color: var(--rose);
+}
+
+.editingRow {
+  background: rgba(36, 87, 166, 0.08);
 }
