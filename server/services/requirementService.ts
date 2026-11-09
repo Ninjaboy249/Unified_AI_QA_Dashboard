@@ -9,27 +9,7 @@ export const documentInput = z.object({
 
 export async function extractRequirements(input: z.infer<typeof documentInput>): Promise<RequirementDocument> {
   const buffer = Buffer.from(input.content, "base64");
-  if (buffer.length > 5 * 1024 * 1024) throw new Error("Document exceeds the 5 MB limit.");
-  let text: string;
-  const extension = input.fileName.split(".").pop()?.toLowerCase();
-  if (extension === "pdf") {
-    if (!buffer.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Invalid PDF document.");
-    const { PDFParse } = await import("pdf-parse");
-    const parser = new PDFParse({ data: buffer });
-    try {
-      text = (await parser.getText()).text;
-    } finally {
-      await parser.destroy();
-    }
-  } else if (extension === "docx") {
-    const mammoth = await import("mammoth");
-    text = (await mammoth.extractRawText({ buffer })).value;
-  } else {
-    text = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
-  }
-  text = text.replace(/\r\n/g, "\n").trim();
-  if (text.length < 8) throw new Error("No readable requirements found. Scanned PDFs require OCR before upload.");
-  if (text.length > 60_000) throw new Error("Extracted text exceeds 60,000 characters. Split the document before uploading.");
+  const text = await extractDocumentText(input.fileName, buffer);
   const schema = z.object({
     requirements: z.array(z.object({
       id: z.string().min(1), title: z.string().min(1), description: z.string().min(1)
@@ -53,4 +33,29 @@ export async function extractRequirements(input: z.infer<typeof documentInput>):
       ? "AI-structured draft. Compare with the original document before generating cases."
       : "AI structuring unavailable. Original text is grouped by paragraph; review and edit before generation."
   };
+}
+
+export async function extractDocumentText(fileName: string, buffer: Buffer): Promise<string> {
+  if (buffer.length > 5 * 1024 * 1024) throw new Error("Document exceeds the 5 MB limit.");
+  let text: string;
+  const extension = fileName.split(".").pop()?.toLowerCase();
+  if (extension === "pdf") {
+    if (!buffer.subarray(0, 5).equals(Buffer.from("%PDF-"))) throw new Error("Invalid PDF document.");
+    const { PDFParse } = await import("pdf-parse");
+    const parser = new PDFParse({ data: buffer });
+    try {
+      text = (await parser.getText()).text;
+    } finally {
+      await parser.destroy();
+    }
+  } else if (extension === "docx") {
+    const mammoth = await import("mammoth");
+    text = (await mammoth.extractRawText({ buffer })).value;
+  } else {
+    text = new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+  }
+  text = text.replace(/\r\n/g, "\n").trim();
+  if (text.length < 8) throw new Error("No readable requirements found. Scanned PDFs require OCR before upload.");
+  if (text.length > 60_000) throw new Error("Extracted text exceeds 60,000 characters. Split the document before uploading.");
+  return text;
 }

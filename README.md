@@ -21,7 +21,8 @@ Key solutions included:
 - Devices: provides a shared PostgreSQL-backed device inventory with manual editing, same-user device additions, and confirmed AI change previews. Account is removed from navigation.
 - Policy Setup Assistant: uses OpenAI to recommend an allowlisted Microsoft admin portal and navigation steps; supports protected local browser login with manual MFA. Supporting guidance comes from Microsoft Learn or local knowledge files.
 - AI Assistant: routes natural-language intent to the correct workflow.
-- Knowledge Sources: shows the local evidence documents used by the policy assistant.
+- Policy evidence: retrieves full Microsoft Learn articles or automatically discovered public Google Drive Word documents through source-cited RAG.
+- Knowledge Sources: shows local fallback evidence; the configured public policy folder is visible in the Policy section.
 - Health & Evidence: shows AI mode, configured model, validation controls, and project proof points.
 
 ## What We Used
@@ -29,7 +30,7 @@ Key solutions included:
 - Frontend: React 19, TypeScript, Vite, React Router, Lucide icons.
 - Backend: Express 5, TypeScript, Zod validation.
 - AI provider: OpenAI GPT-5 mini through a backend-only API integration.
-- Knowledge base: Microsoft Learn search extraction plus local Markdown fallback files in `knowledge/`.
+- Policy RAG: Microsoft Learn article extraction with Cheerio, public-folder Google Drive API access with a backend API key, DOCX extraction with Mammoth, overlapping text chunks, OpenAI embeddings and cosine-similarity retrieval. Local Markdown remains an explicitly labeled Learn fallback.
 - Styling: custom responsive CSS with premium desktop and mobile dashboard layouts.
 - Runtime: Node.js. This workspace also includes a portable Node setup in `.tools/` for local execution.
 
@@ -76,6 +77,45 @@ Upload TXT, Markdown, text-based PDF or DOCX files up to 5 MB and 60,000 extract
 Document text is sent to the configured AI provider. Remove credentials, secrets and personal data before upload. Uploaded documents are processed in memory rather than saved by the application.
 
 ## Policy Assistant
+
+### Source-cited policy RAG
+
+Choose **Microsoft Learn**, **Public Google Drive folder**, or **both**, enter a policy question, and click **Find source-cited policy guidance**.
+
+- Learn search locates up to two articles. The backend downloads their article bodies, removes navigation/scripts, and follows only HTTPS `learn.microsoft.com` redirects. Search descriptions alone are not treated as policy evidence.
+- Drive documents are discovered automatically from one backend-configured public folder. No Google user login, per-file download links or manual file selection is needed. DOCX and Google Docs (exported to DOCX) directly inside the folder are supported; subfolders, shortcuts and legacy `.doc` files are not included.
+- The existing three-document processing limit now applies to the whole public folder. If more than three supported documents are found, retrieval fails explicitly; it never silently processes only the first three. Use a small dedicated policy folder. Each file is limited to 5 MB and 60,000 extracted characters.
+- The folder is rediscovered and file membership/access rechecked on every question before extracting document text. Files moved out of the folder or made private cannot be answered from a stale index.
+- The backend splits text into 1,600-character chunks with 200-character overlap, embeds the question and chunks, and retrieves up to eight excerpts with cosine similarity of at least 0.25. No vector database extension is required.
+- OpenAI produces a draft answer using only these excerpts. Every claim must cite a retrieved excerpt ID. Unknown citations and malformed AI responses are rejected. The UI exposes original-source links and the exact retrieved excerpts.
+- If no evidence answers the question, the dashboard says so. Learn failures and local fallback use are explicitly shown; Drive failures stop retrieval rather than silently omitting documents. An empty Drive folder is labeled explicitly. Retrieval similarity is not a probability that an answer is correct.
+
+**Public Google Drive folder setup**
+
+1. Create a dedicated Google Drive folder containing up to three non-sensitive DOCX or Google Docs policy documents directly inside it.
+2. Set the folder's **Share > General access > Anyone with the link > Viewer**. Confirm that every document can be opened and downloaded/exported in a signed-out browser. Public folder sharing does not override restricted file permissions or an organization's policy blocking public sharing.
+3. Copy the folder ID from `https://drive.google.com/drive/folders/FOLDER_ID`. This is configured once, not entered as a download link for each question.
+4. Enable the **Google Drive API** in a Google Cloud project and create an API key. Restrict the key to the Google Drive API and, where possible, your backend's outbound IPs. A browser-referrer restriction is not suitable for server-to-server requests. An API key identifies the project for public data; it does not grant access to private Drive files. See Google's [public-folder listing guide](https://developers.google.com/workspace/drive/api/guides/search-files#list_files_in_a_public_folder).
+5. Configure these backend-only environment variables and restart the backend:
+
+   ```env
+   GOOGLE_DRIVE_FOLDER_ID=your-public-folder-id
+   GOOGLE_DRIVE_API_KEY=your-private-backend-api-key
+   OPENAI_EMBEDDING_MODEL=text-embedding-3-small
+   ```
+
+   If the folder share link also contains `resourcekey=...`, set `GOOGLE_DRIVE_FOLDER_RESOURCE_KEY` to that value. File resource keys are read from Drive metadata and carried into downloads and source links.
+
+   Do not commit API keys or give secrets a `VITE_` prefix. Configure `OPENAI_API_KEY`, a chat model and an embedding model supported by your AI endpoint. Public-folder retrieval does not require `DATABASE_URL`, OAuth client credentials, a redirect URI or a Google login.
+6. In Policy, choose the public folder or both sources. The dashboard lists supported documents automatically. Authorize AI processing of the configured folder, then ask a question. **Refresh public folder** rechecks configuration and discovery; no individual file links are required.
+
+**Privacy:** Public documents can be read by anyone with their share links. Their contents and resulting answers are available to dashboard users. Do not make confidential policy documents, secrets or personal data public; use only organization-approved material. The backend reads only supported files in the configured folder, never a caller-supplied file ID or URL. Extracted text and embeddings are processed in memory per question, not persisted by the dashboard. Text is sent to the configured AI provider for embeddings, and relevant excerpts for answers; provider retention follows your agreement. Questions, document content and raw Google request URLs (which contain the API key) are not logged by policy routes.
+
+**Migrating from Google sign-in:** `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` and `GOOGLE_DRIVE_SECRET` are no longer used by policy retrieval. The old connect/callback/disconnect endpoints return HTTP 410 and clear old browser cookies. Previously stored `qa_drive_oauth_states` and `qa_drive_sessions` rows are no longer read; have your database administrator remove these obsolete token records and revoke previous Google app grants through Google Account permissions if needed. This migration does not automatically delete your database records or retract answers already received.
+
+RAG performs several sequential upstream calls. The Vercel function budget is 300 seconds; confirm that your hosting plan supports it. With `AI_TIMEOUT_MS=55000`, each AI call is capped at 55 seconds and source requests at 12 seconds. Smaller hosting budgets may terminate retrieval early; use a compatible plan or a persistent Node backend.
+
+### Portal navigation (separate from retrieved guidance)
 
 The Policy Setup Assistant chat asks OpenAI to choose from fixed Teams, Intune, Entra, Microsoft 365 and Purview portal IDs, never arbitrary URLs. It shows the portal link, role considerations and suggested navigation steps. Up to three previous requests provide follow-up context. Use the separate supporting-guidance action to search Microsoft Learn, with approved local Markdown fallback.
 
@@ -156,7 +196,7 @@ Signing in with the configured admin or dev credentials adds an **Account** item
 - The Account page shows the username, role and session expiry. Admins also see the list of configured accounts.
 - Failed sign-ins are limited to 5 per client and username every 15 minutes (per backend instance).
 
-This is an account section, not an access gate: other dashboard workflows remain available without signing in.
+This is an account section, not an access gate: other dashboard workflows remain available without admin/dev sign-in. Public-folder policy retrieval does not use Google user sessions.
 
 ### Ring test accounts
 
@@ -260,6 +300,7 @@ npm run build
 
 `npm run typecheck` verifies frontend and backend TypeScript. `npm run build` verifies the production frontend and server build.
 `npm test` covers mobile scope, document parsing, screenshot attribution, portal validation, login access controls and an isolated browser sign-in fixture. Install Chromium with `npx playwright install chromium` before running the browser test. The tests use fake credentials and mock AI/Microsoft pages; they do not authenticate to a real tenant.
+Policy tests mock Google/Microsoft/AI calls to verify public-folder discovery/pagination, folder membership, API-key isolation, resource keys, DOCX/Google Docs extraction, revoked public access, size limits, semantic retrieval, citation validation and explicit failures without a database or Google login. They do not access a real Google Drive or send documents to a live AI provider.
 Device tests run against an isolated, temporary embedded PostgreSQL instance using the real `pg` driver. They cover field edits, same-owner additions, transaction rollback, revision conflicts, confirmed AI plans, durable restart persistence and empty-inventory behavior. They do not connect to your hosted database or modify real device records.
 
 ## API Routes
@@ -274,6 +315,9 @@ Device tests run against an isolated, temporary embedded PostgreSQL instance usi
 - `POST /api/directory/plan` (`prompt`, current `revision`; preview only)
 - `POST /api/directory/changes` (`changes`, current `revision`; atomic save)
 - `POST /api/policy/ask`
+- `GET /api/policy/drive/status`
+- `GET /api/policy/drive/documents` (discovers supported files in the configured public folder)
+- Legacy `POST /api/policy/drive/connect`, `GET /api/policy/drive/callback`, `POST /api/policy/drive/disconnect` return HTTP 410; Google sign-in is no longer used.
 - `POST /api/policy/setup`
 - `POST /api/policy/login/start` (protected localhost-only)
 - `POST /api/policy/login/close` (protected localhost-only)

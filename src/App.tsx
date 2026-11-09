@@ -25,7 +25,8 @@ import { Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { apiGet, apiPost } from "./api";
 import { AccountPage, LoginPage } from "./Account";
 import { Directory } from "./Directory";
-import type { Account, BugDraft, PolicyAnswer, PolicySetupPlan, Priority, RequirementDocument, TestCase } from "./types";
+import { PolicySourceSelector } from "./PolicySourceSelector";
+import type { Account, BugDraft, PolicyAnswer, PolicySetupPlan, PolicySources, Priority, RequirementDocument, TestCase } from "./types";
 
 const navItems = [
   { path: "/", label: "Command Center", icon: Home },
@@ -396,6 +397,8 @@ function BugDrafter() {
 function PolicyAssistant() {
   const [question, setQuestion] = useState("How should Teams external access be controlled?");
   const [answer, setAnswer] = useState<PolicyAnswer | null>(null);
+  const [answerRequest, setAnswerRequest] = useState("");
+  const [sources, setSources] = useState<PolicySources>({ source: "learn", allowDocumentAI: false });
   const [loading, setLoading] = useState(false);
   const [plan, setPlan] = useState<PolicySetupPlan | null>(null);
   const [history, setHistory] = useState<Array<{ role: "user" | "assistant"; text: string }>>([]);
@@ -429,9 +432,12 @@ function PolicyAssistant() {
 
   async function getGuidance() {
     setError("");
+    setAnswer(null);
     setLoading(true);
+    const request = { question, ...sources };
+    setAnswerRequest(JSON.stringify(request));
     try {
-      setAnswer(await apiPost<PolicyAnswer>("/api/policy/ask", { question }));
+      setAnswer(await apiPost<PolicyAnswer>("/api/policy/ask", request));
     } catch (error) {
       setError(error instanceof Error ? error.message : "Guidance retrieval failed.");
     } finally {
@@ -476,15 +482,16 @@ function PolicyAssistant() {
   }
 
   return (
-    <Page title="Policy Setup Assistant" kicker="AI-guided Microsoft portal selection with human-controlled policy changes">
+    <Page title="Policy Setup Assistant" kicker="Source-cited policy RAG and human-controlled Microsoft portal navigation">
       <p>Describe the policy, not your credentials. AI recommends an approved portal and navigation steps. Credentials belong only in the separate local login form or on Microsoft sign-in.</p>
       <section className="policyChat" aria-label="Policy conversation" role="log" aria-live="polite">
         {history.map((message, index) => <article className={`chatMessage ${message.role}`} key={index}><strong>{message.role === "user" ? "You" : "Policy assistant"}</strong><p>{message.text}</p></article>)}
       </section>
       {error && <p className="errorMessage" role="alert">{error}</p>}
+      <PolicySourceSelector value={sources} disabled={loading} onChange={(value) => { setSources(value); setAnswer(null); }} />
       <FormPanel onSubmit={submit} loading={loading || loginBusy || Boolean(sessionId)} button="Find portal and setup path">
-        <TextArea label="Policy request (no passwords)" value={question} onChange={setQuestion} />
-        <button type="button" className="secondaryButton" disabled={loading || question.trim().length < 4} onClick={() => void getGuidance()}>Find supporting guidance</button>
+        <TextArea label="Policy request (no passwords)" value={question} onChange={(value) => { setQuestion(value); setAnswer(null); }} />
+        <button type="button" className="secondaryButton" disabled={loading || question.trim().length < 4 || question.trim().length > 2000 || (sources.source !== "learn" && !sources.allowDocumentAI)} onClick={() => void getGuidance()}>Find source-cited policy guidance</button>
       </FormPanel>
       {plan && <article className="resultCard">
         <h2>{plan.portal.name}</h2>
@@ -505,15 +512,20 @@ function PolicyAssistant() {
       </article>}
       {loginMessage && <p role="status">{loginMessage}</p>}
       {sessionId && <button type="button" disabled={loginBusy} onClick={() => void closeSession()}>Close isolated browser session</button>}
-      {answer && (
+      {answer && answerRequest === JSON.stringify({ question, ...sources }) && (
         <article className={`resultCard ${answer.found ? "found" : "notFound"}`}>
           <div className="rowBetween">
-            <strong>{answer.found ? "Approved guidance found" : "No grounded answer"}</strong>
-            <span className="pill">{Math.round(answer.confidence * 100)}%</span>
+            <strong>{answer.found ? "Source-cited policy draft" : "No grounded answer"}</strong>
+            {answer.found && <span className="pill">Retrieval similarity: {Math.round(answer.confidence * 100)}%</span>}
           </div>
-          <p>{answer.answer}</p>
-          {answer.sourceTitle && <p><b>Source:</b> {answer.sourceTitle} ({answer.fileName})</p>}
-          {answer.sourceUrl && <a className="sourceLink" href={answer.sourceUrl} target="_blank" rel="noreferrer">Open Microsoft Learn source</a>}
+          <p className="policyAnswer">{answer.answer}</p>
+          {answer.notices.map((notice, index) => <p role="status" key={index}>{notice}</p>)}
+          {answer.citations.map((citation) => <details className="policyCitation" key={citation.id}>
+            <summary>[{citation.id}] {citation.title} ({citation.kind === "drive" ? "Google Drive" : citation.kind === "learn" ? "Microsoft Learn" : "Local document"})</summary>
+            <p className="policyAnswer">{citation.excerpt}</p>
+            {citation.sourceUrl && <a className="sourceLink" href={citation.sourceUrl} target="_blank" rel="noreferrer">Open original source</a>}
+          </details>)}
+          <p>Review the cited excerpts and tenant applicability. Retrieval similarity is not a guarantee of answer correctness. Portal recommendations are a separate AI draft, not retrieved evidence.</p>
         </article>
       )}
     </Page>

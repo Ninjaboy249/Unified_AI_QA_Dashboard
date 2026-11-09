@@ -1,3 +1,7 @@
+import { z } from "zod";
+import { PolicyError } from "./policySchema.js";
+import { readPolicyJson } from "./policyHttp.js";
+
 export interface OpenAIHealth {
   mode: "openai" | "fallback";
   model: string;
@@ -77,6 +81,39 @@ export async function generateJson<T>(prompt: string): Promise<T | null> {
   } catch {
     return null;
   }
+}
+
+export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
+  const { apiKey, baseUrl } = getConfig();
+  if (!apiKey) throw new PolicyError("Configure OPENAI_API_KEY to use policy RAG.", 503);
+  if (!texts.length || texts.length > 300) throw new PolicyError("Policy retrieval requires between 1 and 300 text chunks.", 422);
+  let response: Response;
+  try {
+    response = await fetch(`${baseUrl}/embeddings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: process.env.OPENAI_EMBEDDING_MODEL ?? "text-embedding-3-small", input: texts }),
+      signal: AbortSignal.timeout(timeoutMs)
+    });
+  } catch {
+    throw new PolicyError("Policy embedding provider timed out or is unavailable.", 503);
+  }
+  if (!response.ok) throw new PolicyError("Policy embedding provider rejected the request. Check the embedding model and AI configuration.", 503);
+  const parsed = z.object({
+    data: z.array(z.object({
+      index: z.number().int().nonnegative(),
+      embedding: z.array(z.number().finite()).min(1).max(4096)
+    })).max(300)
+  }).safeParse(await readPolicyJson(response, 32 * 1024 * 1024));
+  if (!parsed.success || parsed.data.data.length !== texts.length) {
+    throw new PolicyError("Policy embedding provider returned invalid vectors.");
+  }
+  const vectors = parsed.data.data.sort((a, b) => a.index - b.index);
+  if (vectors.some((item, index) => item.index !== index || item.embedding.length !== vectors[0].embedding.length
+    || item.embedding.every((value) => value === 0))) {
+    throw new PolicyError("Policy embedding provider returned inconsistent vectors.");
+  }
+  return vectors.map((item) => item.embedding);
 }
 
 function getConfig() {

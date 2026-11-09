@@ -55,6 +55,23 @@ export interface PolicyAnswer {
   sourceTitle?: string;
   fileName?: string;
   sourceUrl?: string;
+  mode: "rag";
+  citations: PolicyCitation[];
+  notices: string[];
+}
+
+export interface PolicyCitation {
+  id: string;
+  title: string;
+  fileName: string;
+  sourceUrl?: string;
+  kind: "learn" | "drive" | "local";
+  excerpt: string;
+}
+
+export interface PolicySources {
+  source: "learn" | "drive" | "both";
+  allowDocumentAI: boolean;
 }
 
 export interface DirectoryRecord {

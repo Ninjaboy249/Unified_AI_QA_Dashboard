@@ -14,7 +14,9 @@ Go to Bug Drafter. Turn a crash summary into a structured defect draft. Emphasiz
 
 ## 03:00 Ground
 
-Go to Policy Assistant. Ask a Teams external access question. Show the source title, file name, confidence, and refusal behavior for unsupported questions.
+Go to Policy Setup Assistant. Choose Microsoft Learn and ask a Teams external access question using **Find source-cited policy guidance**. Expand citations to show actual article excerpts and original-source links. Explain that retrieval similarity is not an accuracy guarantee.
+
+With the public folder ID and backend Drive API key configured, choose Public Google Drive folder or both sources. Show automatically discovered non-sensitive DOCX/Google Docs documents; no Google login or individual download links are required. Authorize AI processing of the folder, ask a question and show the Drive excerpt citation. Explain that documents are public, only direct-child files are included, and folders over the three-document processing limit fail explicitly. Demonstrate no-answer behavior for unsupported details and explain that the separate portal recommendation does not apply policies.
 
 ## 04:05 Prove
 

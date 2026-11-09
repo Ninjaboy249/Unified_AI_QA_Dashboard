@@ -9,6 +9,8 @@ import { changeRequest, DirectoryError } from "./services/directorySchema.js";
 import { activity, metrics } from "./services/metricsService.js";
 import { getOpenAIHealth } from "./services/openaiService.js";
 import { answerPolicyQuestion, listKnowledgeSources } from "./services/policyService.js";
+import { PolicyError, policyQuestionInput } from "./services/policySchema.js";
+import { driveStatus, listDriveDocuments } from "./services/policyDriveService.js";
 import { generateTestCases } from "./services/testCaseService.js";
 import { documentInput, extractRequirements } from "./services/requirementService.js";
 import { planPolicySetup, portalId } from "./services/policySetupService.js";
@@ -51,7 +53,6 @@ const bugInput = z.object({
   priority: z.enum(["Low", "Medium", "High", "Critical"])
 });
 
-const questionInput = z.object({ question: z.string().min(4) });
 const intentInput = z.object({ intent: z.string().min(3) });
 
 app.get("/api/health", async (_req, res, next) => {
@@ -286,9 +287,41 @@ app.post("/api/directory/plan", async (req, res, next) => {
 });
 
 app.post("/api/policy/ask", async (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
   try {
-    const input = questionInput.parse(req.body);
-    res.json(await answerPolicyQuestion(input.question));
+    const input = policyQuestionInput.safeParse(req.body);
+    if (!input.success) return res.status(400).json({ message: "Enter a policy question, choose sources and authorize AI processing when using the public Drive folder. Individual document IDs or links are not accepted." });
+    const { question, ...options } = input.data;
+    res.json(await answerPolicyQuestion(question, options));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.use("/api/policy/drive", (_req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  res.setHeader("Referrer-Policy", "no-referrer");
+  next();
+});
+
+app.get("/api/policy/drive/status", (_req, res, next) => {
+  try {
+    res.json(driveStatus());
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.all(["/api/policy/drive/connect", "/api/policy/drive/callback", "/api/policy/drive/disconnect"], (req, res) => {
+  res.setHeader("Set-Cookie", ["qa_policy_drive", "qa_drive_oauth"].map((name) =>
+    `${name}=; Path=/api/policy; HttpOnly; SameSite=Lax; Max-Age=0${isSecureRequest(req) ? "; Secure" : ""}`));
+  res.status(410).json({ message: "Google sign-in has been replaced by automatic public-folder retrieval. Configure GOOGLE_DRIVE_API_KEY and GOOGLE_DRIVE_FOLDER_ID on the backend." });
+});
+
+app.get("/api/policy/drive/documents", async (req, res, next) => {
+  try {
+    if (Object.keys(req.query).length) throw new PolicyError("Public folder discovery uses the backend-configured folder; document links, searches and folder overrides are not accepted.", 400);
+    res.json(await listDriveDocuments());
   } catch (error) {
     next(error);
   }
@@ -312,12 +345,20 @@ app.get("/api/knowledge/sources", (_req, res, next) => {
 });
 
 app.use((error: unknown, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  if (error instanceof PolicyError) {
+    console.warn("Policy operation rejected:", error.message);
+    return res.status(error.status).json({ message: error.message });
+  }
   if (error instanceof DirectoryError) {
     console.warn("Inventory operation rejected:", error.message);
     return res.status(error.status).json({ message: error.message });
   }
   if (error instanceof AuthError) {
     return res.status(error.status).json({ message: error.message });
+  }
+  if (req.path === "/api/policy/ask" || req.path.startsWith("/api/policy/drive")) {
+    console.warn("Policy retrieval failed; source content and connection details omitted.");
+    return res.status(503).json({ message: "Policy retrieval is unavailable. Check the backend AI and source configuration, then retry." });
   }
   if (req.path.startsWith("/api/test-accounts")) {
     // pg errors can echo query parameters, so never log them for credential storage routes.

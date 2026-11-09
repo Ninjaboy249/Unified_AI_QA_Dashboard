@@ -68,6 +68,24 @@
   border-left: 4px solid var(--teal);
 }
 
+.policySources {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  overflow-wrap: anywhere;
+}
+
+.policyAnswer {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.policyCitation {
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
 .screenshotReference {
   margin: 0 0 16px;
   overflow-wrap: anywhere;
