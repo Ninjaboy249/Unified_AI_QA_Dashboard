@@ -1,6 +1,62 @@
-# Unified AI Operations Dashboard for Quality Assurance
+<div align="center">
+  <img src="./docs/assets/readme-hero.gif" width="1024" alt="Animated QA workflow illustration: requirements, AI-assisted test cases and bug drafts, source-cited policy guidance, and human review." />
 
-Unified AI Operations Dashboard is a full-stack QA productivity platform. It gives QA teams one structured workspace for test-case generation, bug drafting, device inventory lookup, policy assistance, workflow routing, knowledge-source visibility, and implementation evidence.
+  <h1>Unified AI Operations Dashboard</h1>
+  <p><strong>One workspace. Clear evidence. Human control.</strong></p>
+  <p>A full-stack workspace for quality testers to prepare tests, investigate defects,<br />manage devices and retrieve source-cited policy guidance.</p>
+
+  <p>
+    <img src="https://img.shields.io/badge/React-19-149ECA?style=for-the-badge&amp;logo=react&amp;logoColor=white" alt="React 19" />
+    <img src="https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&amp;logo=typescript&amp;logoColor=white" alt="TypeScript" />
+    <img src="https://img.shields.io/badge/Node.js-339933?style=for-the-badge&amp;logo=nodedotjs&amp;logoColor=white" alt="Node.js" />
+    <img src="https://img.shields.io/badge/PostgreSQL-4169E1?style=for-the-badge&amp;logo=postgresql&amp;logoColor=white" alt="PostgreSQL" />
+  </p>
+  <p>
+    <img src="https://img.shields.io/badge/AI-Backend_only-0F172A?style=flat-square" alt="Backend-only AI access" />
+    <img src="https://img.shields.io/badge/RAG-Source_cited-087F83?style=flat-square" alt="Source-cited retrieval-augmented generation" />
+    <img src="https://img.shields.io/badge/Workflow-Human_in_the_loop-7253AB?style=flat-square" alt="Human-in-the-loop workflows" />
+  </p>
+
+  <p>
+    <a href="#run"><strong>Get started</strong></a> &middot;
+    <a href="#solution"><strong>Explore workflows</strong></a> &middot;
+    <a href="#policy-assistant"><strong>Set up policy RAG</strong></a> &middot;
+    <a href="./docs/demo-script.md"><strong>Demo walkthrough</strong></a>
+  </p>
+  <sub>Animated workflow illustration, not test-execution evidence. Prefer no motion? <a href="./docs/assets/readme-hero.png">View the static banner.</a></sub>
+</div>
+
+---
+
+> [!IMPORTANT]
+> AI assists the tester; it does not replace their judgment. Generated tests, bug drafts and policy guidance require human review. The dashboard does not execute generated test cases or apply policies.
+
+## Explore the Workspace
+
+| Prepare | Investigate | Coordinate |
+| :--- | :--- | :--- |
+| **Test Case Generator**<br />Turn requirements into structured Android/iOS test cases, with Excel and JSON exports. | **Bug Drafter**<br />Convert issue context into a reviewable defect draft with reproduction steps. | **Device Inventory**<br />Find shared devices, edit records and confirm AI-proposed changes. |
+| **Policy Evidence**<br />Retrieve Microsoft Learn and public Drive document excerpts through RAG. | **Policy Setup Assistant**<br />Find an approved Microsoft admin portal and review suggested navigation. | **Accounts & Routing**<br />Manage ring test accounts and route natural-language requests to the right workflow. |
+
+<details>
+<summary><strong>Documentation navigation</strong></summary>
+
+- [Problem statement](#problem-statement)
+- [Solution and capabilities](#solution)
+- [Technology stack](#what-we-used)
+- [Architecture and implementation](#how-it-implements)
+- [Test cases, documents and exports](#test-case-table-and-excel-export)
+- [Policy RAG and public Drive setup](#policy-assistant)
+- [Shared device inventory](#device-inventory)
+- [Admin/dev and ring test accounts](#admin--dev-accounts)
+- [Local development](#run)
+- [Vercel deployment](#deploy-to-vercel)
+- [Environment configuration](#environment)
+- [Verification](#verification)
+- [API reference](#api-routes)
+- [Project evidence](#project-evidence)
+
+</details>
 
 ## Problem Statement
 
@@ -14,47 +70,69 @@ The main problem this project solves is:
 
 The dashboard provides a unified operations interface with focused modules instead of a generic chatbot. Each module captures structured input, sends requests through the backend, validates generated results, and returns editable outputs for human review.
 
-Key solutions included:
-
-- Test Case Generator: converts Microsoft Teams Android/iOS requirements into structured positive, negative, and edge test cases with a web table, JSON export, and Excel export. Web and desktop targets are not supported.
-- Bug Drafter: converts issue context into a triage-ready defect draft.
-- Devices: provides a shared PostgreSQL-backed device inventory with manual editing, same-user device additions, and confirmed AI change previews. Account is removed from navigation.
-- Policy Setup Assistant: uses OpenAI to recommend an allowlisted Microsoft admin portal and navigation steps; supports protected local browser login with manual MFA. Supporting guidance comes from Microsoft Learn or local knowledge files.
-- AI Assistant: routes natural-language intent to the correct workflow.
-- Policy evidence: retrieves full Microsoft Learn articles or automatically discovered public Google Drive Word documents through source-cited RAG.
-- Knowledge Sources: shows local fallback evidence; the configured public policy folder is visible in the Policy section.
-- Health & Evidence: shows AI mode, configured model, validation controls, and project proof points.
+| Workflow | What it delivers | Human control |
+| :--- | :--- | :--- |
+| **Test Case Generator** | Positive, negative and edge cases for Microsoft Teams Android/iOS; web table, JSON and Excel exports. Web and desktop targets are not supported. | Review the requirements and generated cases before execution. |
+| **Bug Drafter** | A structured, triage-ready defect draft from issue context. | Confirm reproduction steps, severity and priority. |
+| **Devices** | Shared PostgreSQL inventory, manual edits and same-user device additions. | Preview and confirm AI-proposed changes before saving. |
+| **Policy Setup Assistant** | Allowlisted Microsoft admin portals and suggested navigation; optional protected local login with manual MFA. | An authorized administrator completes sign-in and reviews policy changes manually. |
+| **Policy Evidence** | Full Microsoft Learn articles and automatically discovered public Drive Word documents through RAG. | Inspect original-source links and retrieved excerpts. |
+| **AI Assistant** | Natural-language intent routed to the relevant workflow. | Choose and complete the suggested action. |
+| **Knowledge & Evidence** | Local fallback sources, AI mode, configured model and implementation proof points. | Check source relevance and operational readiness. |
 
 ## What We Used
 
-- Frontend: React 19, TypeScript, Vite, React Router, Lucide icons.
-- Backend: Express 5, TypeScript, Zod validation.
-- AI provider: OpenAI GPT-5 mini through a backend-only API integration.
-- Policy RAG: Microsoft Learn article extraction with Cheerio, public-folder Google Drive API access with a backend API key, DOCX extraction with Mammoth, overlapping text chunks, OpenAI embeddings and cosine-similarity retrieval. Local Markdown remains an explicitly labeled Learn fallback.
-- Styling: custom responsive CSS with premium desktop and mobile dashboard layouts.
-- Runtime: Node.js. This workspace also includes a portable Node setup in `.tools/` for local execution.
+| Layer | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Interface** | React 19, TypeScript, Vite, React Router, Lucide | Responsive, workflow-focused desktop and mobile dashboard. |
+| **API** | Node.js, Express 5, TypeScript, Zod | Backend-controlled requests and structured validation. |
+| **AI** | OpenAI GPT-5 mini; configurable chat and embedding models | Test preparation, bug drafting, recommendations and policy RAG. |
+| **Persistence** | PostgreSQL | Shared device inventory, admin/dev sessions and encrypted ring test credentials. |
+| **Retrieval** | Microsoft Learn, Google Drive API, Cheerio, Mammoth | Read article bodies and public DOCX/Google Docs content. |
+| **RAG** | Overlapping chunks, OpenAI embeddings, cosine similarity | Retrieve relevant excerpts and validate citation IDs. |
+| **Presentation** | Custom responsive CSS | Dashboard layouts and consistent workflow components. |
+
+The browser never receives the backend AI or database credentials. Local Markdown remains an explicitly labeled Microsoft Learn fallback. A portable Node setup in `.tools/` can also be used locally when present.
 
 ## How It Implements
 
 The browser never calls OpenAI directly. All AI and data operations go through the Express API.
 
-Request flow:
+```mermaid
+flowchart LR
+    UI["React interface"] --> API["Express API + Zod"]
+    API --> Services["Workflow services"]
+    Services --> AI["OpenAI chat + embeddings"]
+    Services --> DB["PostgreSQL inventory + accounts"]
+    Services --> Sources["Microsoft Learn + public Drive"]
+    AI --> Results["Validated drafts + cited evidence"]
+    DB --> Results
+    Sources --> Results
+    Results --> Review["Tester review + export"]
 
-```text
-React UI -> Express API -> Service layer -> OpenAI or local knowledge/data -> validated response -> React UI
+    classDef interface fill:#0F172A,stroke:#38BDF8,color:#F8FAFC;
+    classDef backend fill:#123C46,stroke:#5EEAD4,color:#F0FDFA;
+    classDef evidence fill:#32254F,stroke:#C4B5FD,color:#FAF5FF;
+    class UI,Review interface;
+    class API,Services,DB backend;
+    class AI,Sources,Results evidence;
 ```
 
-Implementation details:
+<details>
+<summary><strong>Explore the implementation map</strong></summary>
 
-- The frontend routes live in `src/App.tsx`.
-- API endpoints are defined in `server/index.ts`.
-- AI calls are handled by `server/services/openaiService.ts`.
-- Test-case generation logic is in `server/services/testCaseService.ts`.
-- Bug drafting logic is in `server/services/bugService.ts`.
-- Device inventory data and search are in `server/services/directoryService.ts`.
-- Policy retrieval from Microsoft Learn and local fallback data is in `server/services/policyService.ts`.
-- Shared backend types are in `server/types.ts`.
-- Frontend types are in `src/types.ts`.
+| Surface | Entry point |
+| :--- | :--- |
+| Frontend routes | [`src/App.tsx`](./src/App.tsx) |
+| API endpoints / local server | [`server/app.ts`](./server/app.ts) / [`server/index.ts`](./server/index.ts) |
+| Backend AI integration | [`openaiService.ts`](./server/services/openaiService.ts) |
+| Test generation / bug drafting | [`testCaseService.ts`](./server/services/testCaseService.ts) / [`bugService.ts`](./server/services/bugService.ts) |
+| Shared device inventory | [`directoryService.ts`](./server/services/directoryService.ts) |
+| Policy RAG orchestration | [`policyService.ts`](./server/services/policyService.ts) |
+| Microsoft Learn / public Drive retrieval | [`policyLearnService.ts`](./server/services/policyLearnService.ts) / [`policyDriveService.ts`](./server/services/policyDriveService.ts) |
+| Backend / frontend types | [`server/types.ts`](./server/types.ts) / [`src/types.ts`](./src/types.ts) |
+
+</details>
 
 AI-generated outputs are not blindly trusted. The backend checks required fields and expected shapes before returning data to the browser. Test generation explicitly labels deterministic demo output when AI is unavailable or invalid; it is not requirement-complete coverage. Policy portal recommendations fail explicitly rather than guessing a destination when OpenAI is unavailable.
 
@@ -209,25 +287,27 @@ The Account page also lists shared Microsoft 365 test accounts grouped by ring (
 
 ## Run
 
-Install Node.js first, then:
+**1. Install dependencies** with Node.js and npm available:
 
 ```bash
 npm install
-cp .env.example .env
+```
+
+**2. Create a local `.env`** using the [environment configuration](#environment) below. Keep an existing environment file intact; never commit credentials.
+
+**3. Start the dashboard:**
+
+```bash
 npm run dev
 ```
 
-Open:
+| Service | Local address |
+| :--- | :--- |
+| Frontend | http://localhost:5173 |
+| Express API | http://localhost:4000 |
 
-```text
-http://localhost:5173
-```
-
-The API runs on:
-
-```text
-http://localhost:4000
-```
+> [!TIP]
+> Start with test generation or bug drafting. Configure the [public policy folder](#policy-assistant) for Drive RAG, and a [shared PostgreSQL database](#device-inventory) for inventory editing and account workflows.
 
 ## Deploy to Vercel
 
@@ -257,8 +337,11 @@ Add these environment variables in Vercel Project Settings:
 OPENAI_API_KEY=sk-your-api-key-here
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-5-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 AI_TIMEOUT_MS=55000
 CLIENT_ORIGIN=https://your-vercel-domain.vercel.app
+GOOGLE_DRIVE_FOLDER_ID=your-public-folder-id
+GOOGLE_DRIVE_API_KEY=your-private-backend-api-key
 DATABASE_URL=your-private-hosted-postgresql-connection-string
 ADMIN_USERNAME=your-admin-username
 ADMIN_PASSWORD=your-admin-password
@@ -277,7 +360,7 @@ vercel --prod
 
 ## Environment
 
-Add your OpenAI API key to `.env` before using live AI generation:
+Add backend-only configuration to `.env` before using live AI generation. Replace placeholder values locally; do not publish real keys, passwords or connection strings.
 
 ```env
 PORT=4000
@@ -285,8 +368,20 @@ CLIENT_ORIGIN=http://localhost:5173
 OPENAI_API_KEY=sk-your-api-key-here
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_MODEL=gpt-5-mini
+OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 AI_TIMEOUT_MS=55000
 ```
+
+| Capability | Additional configuration | Setup |
+| :--- | :--- | :--- |
+| Public Drive policy RAG | `GOOGLE_DRIVE_FOLDER_ID`, `GOOGLE_DRIVE_API_KEY`; optional `GOOGLE_DRIVE_FOLDER_RESOURCE_KEY` | [Public folder instructions](#policy-assistant) |
+| Shared device inventory | `DATABASE_URL` | [Database connection](#device-inventory) |
+| Admin/dev accounts | `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DEV_USERNAME`, `DEV_PASSWORD` | [Account configuration](#admin--dev-accounts) |
+| Ring test credential storage | `TEST_ACCOUNT_SECRET` | [Ring test accounts](#ring-test-accounts) |
+| Optional local Microsoft portal login | `POLICY_AUTOMATION_ENABLED`, `POLICY_AUTOMATION_TOKEN` | [Protected local automation](#optional-automated-admin-login-localprivate-node-desktop-only) |
+
+> [!WARNING]
+> Keep `.env` out of Git, never prefix backend secrets with `VITE_`, and remove confidential or personal data before sending documents to an AI provider. Only approved, non-sensitive documents belong in a public Drive folder.
 
 ## Verification
 
@@ -331,6 +426,16 @@ Device tests run against an isolated, temporary embedded PostgreSQL instance usi
 
 ## Project Evidence
 
-- `docs/demo-script.md` contains the five-minute live demo flow.
-- `docs/project-report.md` explains the project design, architecture, controls, limitations, and roadmap.
-- `knowledge/` contains the approved local policy sources.
+| Resource | What to explore |
+| :--- | :--- |
+| [Demo walkthrough](./docs/demo-script.md) | A five-minute tour of the QA workflows. |
+| [Project report](./docs/project-report.md) | Design, architecture, controls, limitations and roadmap. |
+| [Local knowledge sources](./knowledge/) | Approved local policy fallback documents. |
+| [Policy tests](./server/services/policy.test.ts) | Retrieval, citations, public-folder access and explicit failure behavior. |
+
+---
+
+<div align="center">
+  <p><strong>Less context switching. More focused testing.</strong></p>
+  <p><a href="#run">Start locally</a> &middot; <a href="#policy-assistant">Configure policy RAG</a> &middot; <a href="#verification">Verify the project</a></p>
+</div>
