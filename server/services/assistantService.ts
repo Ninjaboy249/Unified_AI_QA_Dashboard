@@ -13,11 +13,18 @@ function editDistance(left: string, right: string) {
 export function routeIntent(intent: string) {
   const normalized = intent.toLowerCase().replace(/[^a-z0-9]+/g, "");
   if (!normalized) {
-    return { path: null, label: "Invalid navigation", confidence: 0, reason: "Enter Test Case or Account." };
+    return { path: null, label: "Invalid navigation", confidence: 0, reason: "Invalid navigation." };
   }
 
   const alternatives = [
     { path: "/test-cases", label: "Test Case", text: "testcase" },
+    { path: "/bug-drafter", label: "Bug Drafter", text: "bugdrafter" },
+    { path: "/bug-drafter", label: "Bug Drafter", text: "bugdrafting" },
+    { path: "/bug-drafter", label: "Bug Drafter", text: "bug" },
+    { path: "/directory", label: "Devices", text: "devices" },
+    { path: "/directory", label: "Devices", text: "device" },
+    { path: "/policy", label: "Policy", text: "policy" },
+    { path: "/policy", label: "Policies", text: "policies" },
     { path: "/account", label: "Account", text: "account" }
   ];
   const exact = alternatives.find((item) =>
@@ -34,5 +41,5 @@ export function routeIntent(intent: string) {
   if (best.distance <= allowedDistance) {
     return { path: best.path, label: best.label, confidence: 0.75, reason: `Predicted ${best.label} from a similar name.` };
   }
-  return { path: null, label: "Invalid navigation", confidence: 0, reason: "Invalid navigation. Try Test Case or Account." };
+  return { path: null, label: "Invalid navigation", confidence: 0, reason: "Invalid navigation." };
 }

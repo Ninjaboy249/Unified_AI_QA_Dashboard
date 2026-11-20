@@ -20,8 +20,8 @@ import {
   UserRound,
   X
 } from "lucide-react";
-import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Link, NavLink, Route, Routes, useNavigate } from "react-router-dom";
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { Link, Navigate, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { apiGet, apiPost } from "./api";
 import { AccountPage, LoginPage } from "./Account";
 import { Directory } from "./Directory";
@@ -33,11 +33,7 @@ const navItems = [
   { path: "/test-cases", label: "Test Cases", icon: ClipboardList },
   { path: "/bug-drafter", label: "Bug Drafter", icon: Bug },
   { path: "/directory", label: "Devices", icon: Database },
-  { path: "/policy", label: "Policy Setup Assistant", icon: ShieldCheck },
-  { path: "/assistant", label: "AI Assistant", icon: Bot },
-  { path: "/knowledge", label: "Knowledge", icon: FileSearch },
-  { path: "/evidence", label: "Evidence", icon: Gauge },
-  { path: "/download", label: "Download", icon: QrCode }
+  { path: "/policy", label: "Policy", icon: ShieldCheck }
 ];
 
 const priorities: Priority[] = ["Low", "Medium", "High", "Critical"];
@@ -53,11 +49,10 @@ export function App() {
   const [account, setAccount] = useState<Account | null>(null);
   const [accountsConfigured, setAccountsConfigured] = useState(true);
   const [sessionChecked, setSessionChecked] = useState(false);
-  const visibleNavItems = account
-    ? [
-        { path: "/test-cases", label: "Test Case", icon: ClipboardList },
-        { path: "/account", label: "Account", icon: UserRound }
-      ]
+  const [selectedDestination, setSelectedDestination] = useState<string | null>(() => sessionStorage.getItem("selectedDestination"));
+  const visibleNavItems = account && selectedDestination
+    ? navItems.filter((item) => item.path === selectedDestination)
+      .concat(selectedDestination === "/account" ? [{ path: "/account", label: "Account", icon: UserRound }] : [])
     : [];
 
   useEffect(() => {
@@ -69,6 +64,16 @@ export function App() {
       .catch(() => setAccount(null))
       .finally(() => setSessionChecked(true));
   }, []);
+
+  function selectDestination(path: string) {
+    setSelectedDestination(path);
+    sessionStorage.setItem("selectedDestination", path);
+  }
+
+  function clearDestination() {
+    setSelectedDestination(null);
+    sessionStorage.removeItem("selectedDestination");
+  }
 
   return (
     <div className={`appShell ${isNavOpen ? "navOpen" : ""}`}>
@@ -119,19 +124,19 @@ export function App() {
       </aside>
       <main>
         <Routes>
-          <Route path="/" element={<Dashboard account={account} />} />
-          <Route path="/test-cases" element={<TestCaseGenerator />} />
-          <Route path="/bug-drafter" element={<BugDrafter />} />
-          <Route path="/directory" element={<Directory />} />
-          <Route path="/policy" element={<PolicyAssistant />} />
-          <Route path="/assistant" element={<Assistant />} />
-          <Route path="/knowledge" element={<Knowledge />} />
-          <Route path="/evidence" element={<Evidence />} />
-          <Route path="/download" element={<DownloadPage />} />
-          <Route path="/login" element={<LoginPage account={account} configured={accountsConfigured} onSignedIn={setAccount} />} />
+          <Route path="/" element={<Dashboard onSelectDestination={selectDestination} />} />
+          <Route path="/test-cases" element={<AllowedDestination account={account} sessionChecked={sessionChecked} selectedDestination={selectedDestination} path="/test-cases"><TestCaseGenerator /></AllowedDestination>} />
+          <Route path="/bug-drafter" element={<AllowedDestination account={account} sessionChecked={sessionChecked} selectedDestination={selectedDestination} path="/bug-drafter"><BugDrafter /></AllowedDestination>} />
+          <Route path="/directory" element={<AllowedDestination account={account} sessionChecked={sessionChecked} selectedDestination={selectedDestination} path="/directory"><Directory /></AllowedDestination>} />
+          <Route path="/policy" element={<AllowedDestination account={account} sessionChecked={sessionChecked} selectedDestination={selectedDestination} path="/policy"><PolicyAssistant /></AllowedDestination>} />
+          <Route path="/login" element={<LoginPage account={account} configured={accountsConfigured} onSignedIn={(signedIn) => { clearDestination(); setAccount(signedIn); }} />} />
           <Route
             path="/account"
-            element={sessionChecked ? <AccountPage account={account} onSignedOut={() => setAccount(null)} /> : null}
+            element={
+              <AllowedDestination account={account} sessionChecked={sessionChecked} selectedDestination={selectedDestination} path="/account">
+                <AccountPage account={account} onSignedOut={() => { clearDestination(); setAccount(null); }} />
+              </AllowedDestination>
+            }
           />
         </Routes>
       </main>
@@ -139,7 +144,26 @@ export function App() {
   );
 }
 
-function Dashboard({ account }: { account: Account | null }) {
+function AllowedDestination({
+  account,
+  sessionChecked,
+  selectedDestination,
+  path,
+  children
+}: {
+  account: Account | null;
+  sessionChecked: boolean;
+  selectedDestination: string | null;
+  path: string;
+  children: ReactNode;
+}) {
+  if (!sessionChecked) return null;
+  if (!account) return <Navigate to="/login" replace />;
+  if (selectedDestination !== path) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
+
+function Dashboard({ onSelectDestination }: { onSelectDestination: (path: string) => void }) {
   const [metrics, setMetrics] = useState<Array<{ label: string; value: string; detail: string }>>([]);
   const [activity, setActivity] = useState<string[]>([]);
   const [intent, setIntent] = useState("");
@@ -160,6 +184,7 @@ function Dashboard({ account }: { account: Account | null }) {
         setNavigationError(result.reason);
         return;
       }
+      onSelectDestination(result.path);
       navigate(result.path);
     } catch (error) {
       setNavigationError(error instanceof Error ? error.message : "Invalid navigation.");
@@ -174,7 +199,7 @@ function Dashboard({ account }: { account: Account | null }) {
 
       <form className="intentBar" onSubmit={submitIntent}>
         <Sparkles size={20} />
-        <input value={intent} onChange={(event) => setIntent(event.target.value)} placeholder="Type Test Case or Account" />
+        <input value={intent} onChange={(event) => setIntent(event.target.value)} placeholder="" aria-label="Dashboard navigation" />
         <button type="submit">Go</button>
       </form>
       {navigationError && <p className="errorMessage" role="alert">{navigationError}</p>}
@@ -190,19 +215,6 @@ function Dashboard({ account }: { account: Account | null }) {
       </section>
 
       <section className="split">
-        <div>
-          <h2>Quick Actions</h2>
-          <div className="actionGrid">
-            {account ? (
-              <>
-                <Link to="/test-cases" className="actionTile"><ClipboardList size={20} /><span>Test Case</span></Link>
-                <Link to="/account" className="actionTile"><UserRound size={20} /><span>Account</span></Link>
-              </>
-            ) : (
-              <Link to="/login" className="actionTile"><LogIn size={20} /><span>Sign in / Create account</span></Link>
-            )}
-          </div>
-        </div>
         <div>
           <h2>Recent Activity</h2>
           <ol className="activityList">
