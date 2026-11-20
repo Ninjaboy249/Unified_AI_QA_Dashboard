@@ -54,10 +54,12 @@ export function App() {
   const [selectedDestination, setSelectedDestination] = useState<string | null>(() => sessionStorage.getItem("selectedDestination"));
   const visibleNavItems = account
     ? navItems.filter((item) => item.path === selectedDestination)
-      .concat([
-        { path: "/profile", label: "Profile", icon: UserRound },
-        { path: "/account", label: "Account", icon: ShieldCheck }
-      ])
+      .concat(selectedDestination === "/account"
+        ? [
+            { path: "/profile", label: "Profile", icon: UserRound },
+            { path: "/account", label: "Account", icon: ShieldCheck }
+          ]
+        : [])
     : [];
 
   useEffect(() => {

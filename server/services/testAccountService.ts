@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 import { z } from "zod";
 import { accountDatabase, AuthError } from "./accountService.js";
 
-export const rings = ["Test Case", "Bug Drafter", "Devices", "Policy", "AI Assistant", "Knowledge", "Evidence", "Download"] as const;
+export const rings: string[] = [];
 
 export const testAccountInput = z.object({
   ring: z.string().trim().min(2).max(50).refine((value) => !/^R\d+$/.test(value) || ["R0", "R1", "R2", "R3", "R4"].includes(value), "Invalid ring"),

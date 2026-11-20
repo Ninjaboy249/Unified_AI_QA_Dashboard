@@ -3,10 +3,10 @@ import { FormEvent, useEffect, useState } from "react";
 import { apiGet, apiPost, apiSend } from "./api";
 import type { Ring, TestAccount } from "./types";
 
-const emptyForm = { ring: "Test Case" as Ring, username: "", password: "", notes: "" };
+const emptyForm = { ring: "" as Ring, username: "", password: "", notes: "" };
 
 export function TestAccounts() {
-  const [rings, setRings] = useState<Ring[]>(["Test Case", "Bug Drafter", "Devices", "Policy", "AI Assistant", "Knowledge", "Evidence", "Download"]);
+  const [rings, setRings] = useState<Ring[]>([]);
   const [newFeature, setNewFeature] = useState("");
   const [showFeatureInput, setShowFeatureInput] = useState(false);
   const [accounts, setAccounts] = useState<TestAccount[]>([]);
@@ -143,7 +143,8 @@ export function TestAccounts() {
       {error && <p className="errorMessage" role="alert">{error}</p>}
       {status && <p role="status">{status}</p>}
 
-      <form className="testAccountForm" onSubmit={submit} autoComplete="off">
+      {rings.length === 0 && <p>No features or accounts have been added.</p>}
+      {rings.length > 0 && <form className="testAccountForm" onSubmit={submit} autoComplete="off">
         <label>Feature
           <select value={form.ring} onChange={(event) => setForm({ ...form, ring: event.target.value as Ring })} disabled={busy}>
             {rings.map((ring) => <option key={ring}>{ring}</option>)}
@@ -159,7 +160,7 @@ export function TestAccounts() {
           <button type="submit" disabled={busy}>{editingId ? <><Pencil size={16} />Update account</> : <><Plus size={16} />Add account</>}</button>
           {editingId && <button type="button" className="secondaryButton" onClick={resetForm} disabled={busy}>Cancel edit</button>}
         </div>
-      </form>
+      </form>}
 
       {grouped.map((group) => (
         <section key={group.ring} className="ringGroup">

@@ -168,7 +168,9 @@ const accountId = z.uuid();
 app.get("/api/test-accounts", async (req, res, next) => {
   try {
     if (!await requireAccount(req, res)) return;
-    res.json({ rings, accounts: await listTestAccounts() });
+    const accounts = await listTestAccounts();
+    const configuredRings = [...new Set(accounts.map((account) => account.ring))].sort((a, b) => a.localeCompare(b));
+    res.json({ rings: configuredRings, accounts });
   } catch (error) {
     next(error);
   }
