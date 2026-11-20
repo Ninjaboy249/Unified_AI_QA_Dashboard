@@ -24,7 +24,7 @@ import {
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { apiGet, apiPost } from "./api";
-import { AccountPage, LoginPage } from "./Account";
+import { AccountPage, LoginPage, ProfilePage } from "./Account";
 import { Directory } from "./Directory";
 import { PolicySourceSelector } from "./PolicySourceSelector";
 import type { Account, BugDraft, PolicyAnswer, PolicySetupPlan, PolicySources, Priority, RequirementDocument, TestCase } from "./types";
@@ -54,7 +54,10 @@ export function App() {
   const [selectedDestination, setSelectedDestination] = useState<string | null>(() => sessionStorage.getItem("selectedDestination"));
   const visibleNavItems = account
     ? navItems.filter((item) => item.path === selectedDestination)
-      .concat([{ path: "/account", label: "Account", icon: UserRound }])
+      .concat([
+        { path: "/profile", label: "Profile", icon: UserRound },
+        { path: "/account", label: "Account", icon: ShieldCheck }
+      ])
     : [];
 
   useEffect(() => {
@@ -155,7 +158,15 @@ export function App() {
             path="/account"
             element={
               <AllowedDestination account={account} sessionChecked={sessionChecked} selectedDestination={selectedDestination} path="/account">
-                <AccountPage account={account} onSignedOut={() => { clearDestination(); setAccount(null); }} />
+                <AccountPage account={account} />
+              </AllowedDestination>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <AllowedDestination account={account} sessionChecked={sessionChecked} selectedDestination={selectedDestination} path="/profile">
+                <ProfilePage account={account} onSignedOut={() => { clearDestination(); setAccount(null); }} />
               </AllowedDestination>
             }
           />
@@ -180,7 +191,7 @@ function AllowedDestination({
 }) {
   if (!sessionChecked) return null;
   if (!account) return <Navigate to="/login" replace />;
-  if (path === "/account") return <>{children}</>;
+  if (path === "/account" || path === "/profile") return <>{children}</>;
   if (selectedDestination !== path) return <Navigate to="/" replace />;
   return <>{children}</>;
 }

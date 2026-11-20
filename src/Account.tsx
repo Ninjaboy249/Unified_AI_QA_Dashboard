@@ -1,4 +1,4 @@
-import { History, LogOut, ShieldCheck, UserRound } from "lucide-react";
+import { History, ShieldCheck, UserRound } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { apiGet, apiPost } from "./api";
@@ -69,25 +69,13 @@ export function LoginPage({ account, configured, onSignedIn }: { account: Accoun
   );
 }
 
-export function AccountPage({ account, onSignedOut }: { account: Account | null; onSignedOut: () => void }) {
-  const [accounts, setAccounts] = useState<AccountSummary[]>([]);
-  const [history, setHistory] = useState<Array<{ id: string; feature: string; action: string; changes: string; username: string; createdAt: string }>>([]);
+export function ProfilePage({ account, onSignedOut }: { account: Account | null; onSignedOut: () => void }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    if (!account) return;
-    apiGet<{ account: Account; accounts?: AccountSummary[] }>("/api/account")
-      .then((result) => setAccounts(result.accounts ?? []))
-      .catch((error) => setError(error instanceof Error ? error.message : "Could not load account details."));
-    apiGet<{ history: typeof history }>("/api/account/history")
-      .then((result) => setHistory(result.history))
-      .catch((error) => setError(error instanceof Error ? error.message : "Could not load account history."));
-  }, [account]);
 
   if (!account) return <Navigate to="/login" replace />;
 
@@ -103,7 +91,7 @@ export function AccountPage({ account, onSignedOut }: { account: Account | null;
       await apiSend("PUT", "/api/account/password", { password });
       setPassword("");
       setConfirmPassword("");
-      setStatus("Permanent password updated.");
+      setStatus("Permanent password updated. Sign in again.");
       onSignedOut();
       navigate("/login");
     } catch (error) {
@@ -113,21 +101,9 @@ export function AccountPage({ account, onSignedOut }: { account: Account | null;
     }
   }
 
-  async function signOut() {
-    setBusy(true);
-    try {
-      await apiPost("/api/auth/logout", {});
-    } catch {
-      // The local session is cleared regardless; the server cookie expires on its own.
-    } finally {
-      onSignedOut();
-      navigate("/");
-    }
-  }
-
   return (
     <div className="page">
-      <header className="pageHeader"><div><span>Signed-in account</span><h1>Account</h1></div></header>
+      <header className="pageHeader"><div><span>Login details</span><h1>Profile</h1></div></header>
       {error && <p className="errorMessage" role="alert">{error}</p>}
       {status && <p className="noticeMessage" role="status">{status}</p>}
       <article className="resultCard accountCard">
@@ -136,7 +112,6 @@ export function AccountPage({ account, onSignedOut }: { account: Account | null;
           <span className="pill">{account.role === "user" ? "User" : account.role === "admin" ? "Admin" : "Dev"}</span>
         </div>
         <p><b>Session expires:</b> {new Date(account.expiresAt).toLocaleString()}</p>
-        <button type="button" disabled={busy} onClick={() => void signOut()}><LogOut size={16} />Sign out</button>
       </article>
       <article className="resultCard">
         <h2><ShieldCheck size={20} /> Change password</h2>
@@ -152,6 +127,31 @@ export function AccountPage({ account, onSignedOut }: { account: Account | null;
           </button>
         </div>
       </article>
+    </div>
+  );
+}
+
+export function AccountPage({ account }: { account: Account | null }) {
+  const [accounts, setAccounts] = useState<AccountSummary[]>([]);
+  const [history, setHistory] = useState<Array<{ id: string; feature: string; action: string; changes: string; username: string; createdAt: string }>>([]);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!account) return;
+    apiGet<{ account: Account; accounts?: AccountSummary[] }>("/api/account")
+      .then((result) => setAccounts(result.accounts ?? []))
+      .catch((error) => setError(error instanceof Error ? error.message : "Could not load account details."));
+    apiGet<{ history: typeof history }>("/api/account/history")
+      .then((result) => setHistory(result.history))
+      .catch((error) => setError(error instanceof Error ? error.message : "Could not load account history."));
+  }, [account]);
+
+  if (!account) return <Navigate to="/login" replace />;
+
+  return (
+    <div className="page">
+      <header className="pageHeader"><div><span>Feature credentials</span><h1>Account</h1></div></header>
+      {error && <p className="errorMessage" role="alert">{error}</p>}
       <TestAccounts />
       <article className="resultCard">
         <h2><History size={20} /> Account history</h2>
