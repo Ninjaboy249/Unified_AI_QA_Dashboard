@@ -11,6 +11,7 @@ import {
   Gauge,
   Home,
   LogIn,
+  LogOut,
   Menu,
   QrCode,
   ShieldCheck,
@@ -46,13 +47,14 @@ const downloadOptions = [
 
 export function App() {
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const navigate = useNavigate();
   const [account, setAccount] = useState<Account | null>(null);
   const [accountsConfigured, setAccountsConfigured] = useState(true);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [selectedDestination, setSelectedDestination] = useState<string | null>(() => sessionStorage.getItem("selectedDestination"));
-  const visibleNavItems = account && selectedDestination
+  const visibleNavItems = account
     ? navItems.filter((item) => item.path === selectedDestination)
-      .concat(selectedDestination === "/account" ? [{ path: "/account", label: "Account", icon: UserRound }] : [])
+      .concat([{ path: "/account", label: "Account", icon: UserRound }])
     : [];
 
   useEffect(() => {
@@ -73,6 +75,19 @@ export function App() {
   function clearDestination() {
     setSelectedDestination(null);
     sessionStorage.removeItem("selectedDestination");
+  }
+
+  async function signOut() {
+    try {
+      await apiPost("/api/auth/logout", {});
+    } catch {
+      // Clear the client session even if the server cookie cleanup fails.
+    } finally {
+      clearDestination();
+      setAccount(null);
+      setIsNavOpen(false);
+      navigate("/login");
+    }
   }
 
   return (
@@ -121,6 +136,12 @@ export function App() {
             <span>Sign in / Create account</span>
           </NavLink>
         )}
+        {sessionChecked && account && (
+          <button type="button" className="navItem signInLink signOutButton" onClick={() => void signOut()}>
+            <LogOut size={18} />
+            <span>Sign out</span>
+          </button>
+        )}
       </aside>
       <main>
         <Routes>
@@ -159,6 +180,7 @@ function AllowedDestination({
 }) {
   if (!sessionChecked) return null;
   if (!account) return <Navigate to="/login" replace />;
+  if (path === "/account") return <>{children}</>;
   if (selectedDestination !== path) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
