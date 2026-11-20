@@ -254,7 +254,7 @@ Shared saving does not add a user identity/role system. Keep deployments behind 
 
 ## Admin / Dev Accounts
 
-Signing in with the configured admin or dev credentials adds an **Account** item to the navigation bar. Anonymous visitors see an **Admin / Dev sign in** link instead.
+Users can create an account with their name and Gmail address. The backend generates a random temporary password and sends it through Gmail SMTP. Passwords are stored as scrypt hashes, while browser sessions use SHA-256 token hashes. Users set a permanent password from their Account profile. After sign-in, navigation is limited to **Test Case** and **Account**.
 
 1. Configure `DATABASE_URL` (see above).
 2. Set the credentials in the backend environment (never with a `VITE_` prefix):
@@ -377,6 +377,7 @@ AI_TIMEOUT_MS=55000
 | Public Drive policy RAG | `GOOGLE_DRIVE_FOLDER_ID`, `GOOGLE_DRIVE_API_KEY`; optional `GOOGLE_DRIVE_FOLDER_RESOURCE_KEY` | [Public folder instructions](#policy-assistant) |
 | Shared device inventory | `DATABASE_URL` | [Database connection](#device-inventory) |
 | Admin/dev accounts | `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `DEV_USERNAME`, `DEV_PASSWORD` | [Account configuration](#admin--dev-accounts) |
+| Email account passwords | `GMAIL_USER`, `GMAIL_APP_PASSWORD` | Gmail account and 16-character app password |
 | Ring test credential storage | `TEST_ACCOUNT_SECRET` | [Ring test accounts](#ring-test-accounts) |
 | Optional local Microsoft portal login | `POLICY_AUTOMATION_ENABLED`, `POLICY_AUTOMATION_TOKEN` | [Protected local automation](#optional-automated-admin-login-localprivate-node-desktop-only) |
 

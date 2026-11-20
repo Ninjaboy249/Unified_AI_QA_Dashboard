@@ -1,10 +1,11 @@
-import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomUUID, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
 import { Pool } from "pg";
+import nodemailer from "nodemailer";
 
 const scrypt = promisify(scryptCallback) as (password: string, salt: Buffer, keylen: number) => Promise<Buffer>;
 
-export type AccountRole = "admin" | "dev";
+export type AccountRole = "admin" | "dev" | "user";
 
 export interface Account {
   username: string;
@@ -104,14 +105,26 @@ async function initialize(connection: Pool) {
     await client.query("SELECT pg_advisory_xact_lock(729446302)");
     await client.query(`CREATE TABLE IF NOT EXISTS qa_accounts (
       username text PRIMARY KEY,
-      role text NOT NULL CHECK (role IN ('admin', 'dev')),
+      role text NOT NULL,
+      display_name text NOT NULL DEFAULT '',
       password_hash text NOT NULL,
       updated_at timestamptz NOT NULL DEFAULT now()
     )`);
+    await client.query("ALTER TABLE qa_accounts ADD COLUMN IF NOT EXISTS display_name text NOT NULL DEFAULT ''");
+    await client.query("ALTER TABLE qa_accounts DROP CONSTRAINT IF EXISTS qa_accounts_role_check");
+    await client.query("ALTER TABLE qa_accounts ADD CONSTRAINT qa_accounts_role_check CHECK (role IN ('admin', 'dev', 'user'))");
     await client.query(`CREATE TABLE IF NOT EXISTS qa_account_sessions (
       token_hash text PRIMARY KEY,
       username text NOT NULL REFERENCES qa_accounts(username) ON DELETE CASCADE,
       expires_at timestamptz NOT NULL
+    )`);
+    await client.query(`CREATE TABLE IF NOT EXISTS qa_account_history (
+      id text PRIMARY KEY,
+      feature text NOT NULL,
+      action text NOT NULL,
+      changes text NOT NULL,
+      username text NOT NULL,
+      created_at timestamptz NOT NULL DEFAULT now()
     )`);
     await client.query(`CREATE TABLE IF NOT EXISTS qa_test_accounts (
       id text PRIMARY KEY,
@@ -124,7 +137,9 @@ async function initialize(connection: Pool) {
     )`);
     await client.query("CREATE UNIQUE INDEX IF NOT EXISTS qa_test_accounts_username ON qa_test_accounts (lower(username))");
     // Environment variables are the source of truth: removed or renamed accounts lose access.
-    await client.query("DELETE FROM qa_accounts WHERE NOT (username = ANY($1::text[]))", [accounts.map((account) => account.username)]);
+    await client.query(
+      "DELETE FROM qa_accounts WHERE role IN ('admin', 'dev') AND NOT (username = ANY($1::text[]))",
+      [accounts.map((account) => account.username)]);
     for (const account of accounts) {
       const existing = await client.query<{ role: string; password_hash: string }>(
         "SELECT role, password_hash FROM qa_accounts WHERE username = $1", [account.username]);
@@ -193,6 +208,93 @@ export async function listAccounts(): Promise<AccountSummary[]> {
   const result = await connection.query<{ username: string; role: AccountRole; updated_at: Date }>(
     "SELECT username, role, updated_at FROM qa_accounts ORDER BY role, username");
   return result.rows.map((row) => ({ username: row.username, role: row.role, updatedAt: new Date(row.updated_at).toISOString() }));
+}
+
+function normalizeEmail(email: string) {
+  const normalized = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized) || normalized.length > 254) {
+    throw new AuthError("Enter a valid email address.", 400);
+  }
+  return normalized;
+}
+
+function generatePassword() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const bytes = randomBytes(12);
+  return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
+}
+
+async function sendPasswordEmail(email: string, password: string) {
+  const user = process.env.GMAIL_USER?.trim();
+  const appPassword = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, "");
+  if (!user || !appPassword) {
+    throw new AuthError("Email delivery is not configured. Add GMAIL_USER and GMAIL_APP_PASSWORD.", 503);
+  }
+  const transport = nodemailer.createTransport({
+    service: "gmail",
+    auth: { user, pass: appPassword }
+  });
+  await transport.sendMail({
+    from: `Unified AI QA Dashboard <${user}>`,
+    to: email,
+    subject: "Your temporary dashboard password",
+    text: `Your temporary password is: ${password}\nSign in, open Account, and set a permanent password.`
+  }).catch(() => {
+    throw new AuthError("Could not send the password by email.", 502);
+  });
+}
+
+export async function createUserAccount(displayName: string, email: string) {
+  const normalizedEmail = normalizeEmail(email);
+  if (!displayName.trim()) throw new AuthError("Enter your name.", 400);
+  const password = generatePassword();
+  await sendPasswordEmail(normalizedEmail, password);
+  const connection = await database();
+  await connection.query(
+    `INSERT INTO qa_accounts (username, role, display_name, password_hash, updated_at)
+     VALUES ($1, 'user', $2, $3, now())
+     ON CONFLICT (username) DO UPDATE SET display_name = EXCLUDED.display_name, password_hash = EXCLUDED.password_hash,
+     role = 'user', updated_at = now()`,
+    [normalizedEmail, displayName.trim(), await hashPassword(password)]);
+  await connection.query("DELETE FROM qa_account_sessions WHERE username = $1", [normalizedEmail]);
+  return { email: normalizedEmail };
+}
+
+export async function changeAccountPassword(username: string, newPassword: string) {
+  if (newPassword.length < 8 || newPassword.length > 1024) {
+    throw new AuthError("Use a permanent password between 8 and 1024 characters.", 400);
+  }
+  const connection = await database();
+  await connection.query("UPDATE qa_accounts SET password_hash = $2, updated_at = now() WHERE username = $1",
+    [username, await hashPassword(newPassword)]);
+  await connection.query("DELETE FROM qa_account_sessions WHERE username = $1", [username]);
+  await connection.query(
+    `INSERT INTO qa_account_history (id, feature, action, changes, username)
+     VALUES ($1, 'Profile', 'Updated', 'Permanent password changed', $2)`,
+    [randomUUID(), username]);
+}
+
+export interface AccountHistoryEntry {
+  id: string;
+  feature: string;
+  action: string;
+  changes: string;
+  username: string;
+  createdAt: string;
+}
+
+export async function listAccountHistory(): Promise<AccountHistoryEntry[]> {
+  const connection = await database();
+  const result = await connection.query<{ id: string; feature: string; action: string; changes: string; username: string; created_at: Date }>(
+    "SELECT id, feature, action, changes, username, created_at FROM qa_account_history ORDER BY created_at DESC LIMIT 500");
+  return result.rows.map((row) => ({
+    id: row.id,
+    feature: row.feature,
+    action: row.action,
+    changes: row.changes,
+    username: row.username,
+    createdAt: new Date(row.created_at).toISOString()
+  }));
 }
 
 export function readSessionCookie(cookieHeader: string | undefined) {

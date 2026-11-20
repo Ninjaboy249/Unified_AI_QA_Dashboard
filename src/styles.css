@@ -212,6 +212,61 @@ nav {
   max-width: 420px;
 }
 
+.authTabs {
+  max-width: 420px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.authTabs button {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--line);
+  box-shadow: none;
+}
+
+.authTabs button.active {
+  background: linear-gradient(135deg, #1d4f91 0%, #087f83 100%);
+  color: white;
+  border-color: transparent;
+}
+
+.noticeMessage {
+  max-width: 420px;
+  color: var(--green);
+  border: 1px solid currentColor;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.featureActions,
+.featureAddInput,
+.ringGroup h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.featureAddInput {
+  margin: 8px 0;
+}
+
+.featureAddInput input {
+  min-width: 220px;
+}
+
+.featureAddButton {
+  width: 34px;
+  height: 34px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--blue);
+  box-shadow: none;
+}
+
 .accountCard h2,
 .accountCard button,
 .resultCard h2 svg {

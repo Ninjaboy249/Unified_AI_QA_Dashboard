@@ -3,10 +3,12 @@ import { FormEvent, useEffect, useState } from "react";
 import { apiGet, apiPost, apiSend } from "./api";
 import type { Ring, TestAccount } from "./types";
 
-const emptyForm = { ring: "R0" as Ring, username: "", password: "", notes: "" };
+const emptyForm = { ring: "Test Case" as Ring, username: "", password: "", notes: "" };
 
 export function TestAccounts() {
-  const [rings, setRings] = useState<Ring[]>(["R0", "R1", "R2", "R3", "R4"]);
+  const [rings, setRings] = useState<Ring[]>(["Test Case", "Bug Drafter", "Devices", "Policy", "AI Assistant", "Knowledge", "Evidence", "Download"]);
+  const [newFeature, setNewFeature] = useState("");
+  const [showFeatureInput, setShowFeatureInput] = useState(false);
   const [accounts, setAccounts] = useState<TestAccount[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -32,6 +34,20 @@ export function TestAccounts() {
   function resetForm() {
     setForm(emptyForm);
     setEditingId(null);
+  }
+
+  function addFeature() {
+    const feature = newFeature.trim();
+    if (!feature) return;
+    if (!rings.some((item) => item.toLowerCase() === feature.toLowerCase())) {
+      setRings((current) => [...current, feature]);
+      setForm((current) => ({ ...current, ring: feature }));
+      setStatus(`Added feature ${feature}.`);
+    } else {
+      setError("That feature already exists.");
+    }
+    setNewFeature("");
+    setShowFeatureInput(false);
   }
 
   function startEdit(account: TestAccount) {
@@ -110,16 +126,25 @@ export function TestAccounts() {
     }
   }
 
-  const grouped = rings.map((ring) => ({ ring, items: accounts.filter((account) => account.ring === ring) })).filter((group) => group.items.length > 0);
+  const grouped = rings.map((ring) => ({ ring, items: accounts.filter((account) => account.ring === ring) }));
 
   return (
     <article className="resultCard testAccounts">
-      <h2>Test accounts by ring</h2>
+      <h2>Accounts by feature</h2>
+      <div className="featureActions">
+        <button type="button" className="iconButton featureAddButton" aria-label="Add feature" onClick={() => setShowFeatureInput((current) => !current)}><Plus size={18} /></button>
+        {showFeatureInput && (
+          <span className="featureAddInput">
+            <input value={newFeature} onChange={(event) => setNewFeature(event.target.value)} placeholder="Feature name" maxLength={50} />
+            <button type="button" onClick={addFeature} disabled={!newFeature.trim()}>Add</button>
+          </span>
+        )}
+      </div>
       {error && <p className="errorMessage" role="alert">{error}</p>}
       {status && <p role="status">{status}</p>}
 
       <form className="testAccountForm" onSubmit={submit} autoComplete="off">
-        <label>Ring
+        <label>Feature
           <select value={form.ring} onChange={(event) => setForm({ ...form, ring: event.target.value as Ring })} disabled={busy}>
             {rings.map((ring) => <option key={ring}>{ring}</option>)}
           </select>
@@ -136,10 +161,15 @@ export function TestAccounts() {
         </div>
       </form>
 
-      {grouped.length === 0 && <p>No test accounts yet. Add one above.</p>}
       {grouped.map((group) => (
         <section key={group.ring} className="ringGroup">
-          <h3>{group.ring} <span className="pill">{group.items.length}</span></h3>
+          <h3>
+            {group.ring} <span className="pill">{group.items.length}</span>
+            <button type="button" className="iconButton featureAddButton" aria-label={`Add account for ${group.ring}`} onClick={() => {
+              setForm((current) => ({ ...current, ring: group.ring }));
+              document.querySelector(".testAccountForm")?.scrollIntoView({ behavior: "smooth" });
+            }}><Plus size={16} /></button>
+          </h3>
           <div className="tableWrap">
             <table>
               <thead><tr><th>Username</th><th>Password</th><th>Notes</th><th>Last updated</th><th>Actions</th></tr></thead>

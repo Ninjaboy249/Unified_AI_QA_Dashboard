@@ -16,7 +16,8 @@ import { documentInput, extractRequirements } from "./services/requirementServic
 import { planPolicySetup, portalId } from "./services/policySetupService.js";
 import { closePolicyLogin, isAuthorizedLocalRequest, startPolicyLogin } from "./services/policyLoginService.js";
 import {
-  AuthError, getSessionAccount, isAccountStoreConfigured, listAccounts, readSessionCookie, sessionCookie, signIn, signOut
+  AuthError, changeAccountPassword, createUserAccount, getSessionAccount, isAccountStoreConfigured, listAccountHistory, listAccounts,
+  readSessionCookie, sessionCookie, signIn, signOut
 } from "./services/accountService.js";
 import {
   createTestAccount, deleteTestAccount, listTestAccounts, revealTestAccountPassword, rings, testAccountInput, updateTestAccount
@@ -53,7 +54,7 @@ const bugInput = z.object({
   priority: z.enum(["Low", "Medium", "High", "Critical"])
 });
 
-const intentInput = z.object({ intent: z.string().min(3) });
+const intentInput = z.object({ intent: z.string().min(1).max(100) });
 
 app.get("/api/health", async (_req, res, next) => {
   try {
@@ -77,6 +78,21 @@ app.post("/api/auth/login", async (req, res, next) => {
     next(error);
   } finally {
     if (req.body && typeof req.body === "object") delete req.body.password;
+  }
+});
+
+app.post("/api/auth/create", async (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  const input = z.object({
+    name: z.string().trim().min(2).max(100),
+    email: z.email().trim().max(254)
+  }).safeParse(req.body);
+  if (!input.success) return res.status(400).json({ message: "Enter your name and a valid email address." });
+  try {
+    const result = await createUserAccount(input.data.name, input.data.email);
+    res.json({ message: "A random password was sent to your email address.", email: result.email });
+  } catch (error) {
+    next(error);
   }
 });
 
@@ -106,6 +122,33 @@ app.get("/api/account", async (req, res, next) => {
     const account = await getSessionAccount(readSessionCookie(req.headers.cookie));
     if (!account) return res.status(401).json({ message: "Sign in with an admin or dev account to view this page." });
     res.json({ account, accounts: account.role === "admin" ? await listAccounts() : undefined });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put("/api/account/password", async (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    const account = await getSessionAccount(readSessionCookie(req.headers.cookie));
+    if (!account) return res.status(401).json({ message: "Sign in to change your password." });
+    const input = z.object({ password: z.string().min(8).max(1024) }).safeParse(req.body);
+    if (!input.success) return res.status(400).json({ message: "Use a password between 8 and 1024 characters." });
+    await changeAccountPassword(account.username, input.data.password);
+    res.setHeader("Set-Cookie", sessionCookie("", isSecureRequest(req), 0));
+    res.json({ message: "Permanent password updated. Sign in again." });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/account/history", async (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store");
+  try {
+    if (!await getSessionAccount(readSessionCookie(req.headers.cookie))) {
+      return res.status(401).json({ message: "Sign in to view account history." });
+    }
+    res.json({ history: await listAccountHistory() });
   } catch (error) {
     next(error);
   }
@@ -162,10 +205,11 @@ app.put("/api/test-accounts/:id", async (req, res, next) => {
 
 app.delete("/api/test-accounts/:id", async (req, res, next) => {
   try {
-    if (!await requireAccount(req, res)) return;
+    const account = await requireAccount(req, res);
+    if (!account) return;
     const id = accountId.safeParse(req.params.id);
     if (!id.success) return res.status(400).json({ message: "Invalid test account ID." });
-    await deleteTestAccount(id.data);
+    await deleteTestAccount(id.data, account.username);
     res.json({ message: "Test account removed." });
   } catch (error) {
     next(error);

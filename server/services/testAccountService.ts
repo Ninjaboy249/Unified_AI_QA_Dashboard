@@ -2,10 +2,10 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID }
 import { z } from "zod";
 import { accountDatabase, AuthError } from "./accountService.js";
 
-export const rings = ["R0", "R1", "R2", "R3", "R4"] as const;
+export const rings = ["Test Case", "Bug Drafter", "Devices", "Policy", "AI Assistant", "Knowledge", "Evidence", "Download"] as const;
 
 export const testAccountInput = z.object({
-  ring: z.enum(rings),
+  ring: z.string().trim().min(2).max(50).refine((value) => !/^R\d+$/.test(value) || ["R0", "R1", "R2", "R3", "R4"].includes(value), "Invalid ring"),
   username: z.email().trim().max(254),
   password: z.string().max(1024).default(""),
   notes: z.string().trim().max(500).default("")
@@ -15,11 +15,20 @@ export type TestAccountInput = z.infer<typeof testAccountInput>;
 
 export interface TestAccount {
   id: string;
-  ring: (typeof rings)[number];
+  ring: string;
   username: string;
   notes: string;
   updatedBy: string;
   updatedAt: string;
+}
+
+export interface AccountHistoryEntry {
+  id: string;
+  feature: string;
+  action: string;
+  changes: string;
+  username: string;
+  createdAt: string;
 }
 
 function encryptionKey() {
@@ -49,7 +58,7 @@ function decrypt(stored: string) {
   }
 }
 
-const toAccount = (row: { id: string; ring: TestAccount["ring"]; username: string; notes: string; updated_by: string; updated_at: Date }): TestAccount => ({
+const toAccount = (row: { id: string; ring: string; username: string; notes: string; updated_by: string; updated_at: Date }): TestAccount => ({
   id: row.id, ring: row.ring, username: row.username, notes: row.notes, updatedBy: row.updated_by, updatedAt: new Date(row.updated_at).toISOString()
 });
 
@@ -77,6 +86,10 @@ export async function createTestAccount(input: TestAccountInput, actor: string) 
     const result = await connection.query(`INSERT INTO qa_test_accounts (id, ring, username, password_encrypted, notes, updated_by)
       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, ring, username, notes, updated_by, updated_at`,
     [randomUUID(), input.ring, input.username, encrypt(input.password), input.notes, actor]);
+    await connection.query(
+      `INSERT INTO qa_account_history (id, feature, action, changes, username)
+       VALUES ($1, $2, 'Added', $3, $4)`,
+      [randomUUID(), input.ring, `Added account ${input.username}`, actor]);
     return toAccount(result.rows[0]);
   } catch (error) {
     if (uniqueViolation(error)) throw new AuthError("A test account with this username already exists.", 409);
@@ -87,12 +100,24 @@ export async function createTestAccount(input: TestAccountInput, actor: string) 
 export async function updateTestAccount(id: string, input: TestAccountInput, actor: string) {
   const connection = await accountDatabase();
   try {
+    const before = await connection.query<{ ring: string; username: string; notes: string }>(
+      "SELECT ring, username, notes FROM qa_test_accounts WHERE id = $1", [id]);
+    const old = before.rows[0];
     // A blank password keeps the existing one.
     const result = await connection.query(`UPDATE qa_test_accounts SET ring = $2, username = $3, notes = $4, updated_by = $5, updated_at = now(),
       password_encrypted = COALESCE($6, password_encrypted)
       WHERE id = $1 RETURNING id, ring, username, notes, updated_by, updated_at`,
     [id, input.ring, input.username, input.notes, actor, input.password ? encrypt(input.password) : null]);
     if (!result.rows[0]) throw new AuthError("Test account not found.", 404);
+    const changes: string[] = [];
+    if (old && old.ring !== input.ring) changes.push(`Feature ${old.ring} -> ${input.ring}`);
+    if (old && old.username !== input.username) changes.push(`Username ${old.username} -> ${input.username}`);
+    if (old && old.notes !== input.notes) changes.push("Notes updated");
+    if (input.password) changes.push("Password updated");
+    await connection.query(
+      `INSERT INTO qa_account_history (id, feature, action, changes, username)
+       VALUES ($1, $2, 'Updated', $3, $4)`,
+      [randomUUID(), input.ring, changes.join("; ") || "Account updated", actor]);
     return toAccount(result.rows[0]);
   } catch (error) {
     if (uniqueViolation(error)) throw new AuthError("A test account with this username already exists.", 409);
@@ -100,8 +125,15 @@ export async function updateTestAccount(id: string, input: TestAccountInput, act
   }
 }
 
-export async function deleteTestAccount(id: string) {
+export async function deleteTestAccount(id: string, actor: string) {
   const connection = await accountDatabase();
+  const before = await connection.query<{ ring: string; username: string }>(
+    "SELECT ring, username FROM qa_test_accounts WHERE id = $1", [id]);
+  const old = before.rows[0];
   const result = await connection.query("DELETE FROM qa_test_accounts WHERE id = $1", [id]);
   if (!result.rowCount) throw new AuthError("Test account not found.", 404);
+  if (old) await connection.query(
+    `INSERT INTO qa_account_history (id, feature, action, changes, username)
+     VALUES ($1, $2, 'Removed', $3, $4)`,
+    [randomUUID(), old.ring, `Removed account ${old.username}`, actor]);
 }

@@ -53,8 +53,12 @@ export function App() {
   const [account, setAccount] = useState<Account | null>(null);
   const [accountsConfigured, setAccountsConfigured] = useState(true);
   const [sessionChecked, setSessionChecked] = useState(false);
-  const isPrivileged = account?.role === "admin" || account?.role === "dev";
-  const visibleNavItems = isPrivileged ? [...navItems, { path: "/account", label: "Account", icon: UserRound }] : navItems;
+  const visibleNavItems = account
+    ? [
+        { path: "/test-cases", label: "Test Case", icon: ClipboardList },
+        { path: "/account", label: "Account", icon: UserRound }
+      ]
+    : [];
 
   useEffect(() => {
     apiGet<{ configured: boolean; account: Account | null }>("/api/auth/session")
@@ -109,13 +113,13 @@ export function App() {
         {sessionChecked && !account && (
           <NavLink to="/login" className="navItem signInLink" onClick={() => setIsNavOpen(false)}>
             <LogIn size={18} />
-            <span>Admin / Dev sign in</span>
+            <span>Sign in / Create account</span>
           </NavLink>
         )}
       </aside>
       <main>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/" element={<Dashboard account={account} />} />
           <Route path="/test-cases" element={<TestCaseGenerator />} />
           <Route path="/bug-drafter" element={<BugDrafter />} />
           <Route path="/directory" element={<Directory />} />
@@ -135,10 +139,11 @@ export function App() {
   );
 }
 
-function Dashboard() {
+function Dashboard({ account }: { account: Account | null }) {
   const [metrics, setMetrics] = useState<Array<{ label: string; value: string; detail: string }>>([]);
   const [activity, setActivity] = useState<string[]>([]);
   const [intent, setIntent] = useState("");
+  const [navigationError, setNavigationError] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -148,8 +153,17 @@ function Dashboard() {
 
   async function submitIntent(event: FormEvent) {
     event.preventDefault();
-    const result = await apiPost<{ path: string }>("/api/assistant/route", { intent });
-    navigate(result.path);
+    setNavigationError("");
+    try {
+      const result = await apiPost<{ path: string | null; reason: string }>("/api/assistant/route", { intent });
+      if (!result.path) {
+        setNavigationError(result.reason);
+        return;
+      }
+      navigate(result.path);
+    } catch (error) {
+      setNavigationError(error instanceof Error ? error.message : "Invalid navigation.");
+    }
   }
 
   return (
@@ -160,9 +174,10 @@ function Dashboard() {
 
       <form className="intentBar" onSubmit={submitIntent}>
         <Sparkles size={20} />
-        <input value={intent} onChange={(event) => setIntent(event.target.value)} placeholder="Describe the QA task" />
-        <button type="submit">Route</button>
+        <input value={intent} onChange={(event) => setIntent(event.target.value)} placeholder="Type Test Case or Account" />
+        <button type="submit">Go</button>
       </form>
+      {navigationError && <p className="errorMessage" role="alert">{navigationError}</p>}
 
       <section className="metricGrid">
         {metrics.map((metric) => (
@@ -178,12 +193,14 @@ function Dashboard() {
         <div>
           <h2>Quick Actions</h2>
           <div className="actionGrid">
-            {navItems.slice(1, 5).map((item) => (
-              <Link to={item.path} className="actionTile" key={item.path}>
-                <item.icon size={20} />
-                <span>{item.label}</span>
-              </Link>
-            ))}
+            {account ? (
+              <>
+                <Link to="/test-cases" className="actionTile"><ClipboardList size={20} /><span>Test Case</span></Link>
+                <Link to="/account" className="actionTile"><UserRound size={20} /><span>Account</span></Link>
+              </>
+            ) : (
+              <Link to="/login" className="actionTile"><LogIn size={20} /><span>Sign in / Create account</span></Link>
+            )}
           </div>
         </div>
         <div>

@@ -115,17 +115,17 @@ export interface DirectoryProposal {
 
 export interface Account {
   username: string;
-  role: "admin" | "dev";
+  role: "admin" | "dev" | "user";
   expiresAt: string;
 }
 
 export interface AccountSummary {
   username: string;
-  role: "admin" | "dev";
+  role: "admin" | "dev" | "user";
   updatedAt: string;
 }
 
-export type Ring = "R0" | "R1" | "R2" | "R3" | "R4";
+export type Ring = string;
 
 export interface TestAccount {
   id: string;
